@@ -1,0 +1,21 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+publish/
+*.dll
+*.exe
+*.pdb
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# Lintel local state / scratch
+_*.png
+settings.json
+
+# OS
+Thumbs.db
+desktop.ini
