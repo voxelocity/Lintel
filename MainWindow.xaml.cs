@@ -101,7 +101,6 @@ public partial class MainWindow : Window, IWidgetHost
         _perf = new PerfMonitor(Dispatcher);
         _perf.Updated += () => { if (GraphPopup.IsOpen && _graphMetric != null) UpdateGraph(_graphMetric); };
 
-        BuildContextMenu();
         ApplySettings();
         ApplyMode(initial: true);
 
@@ -417,7 +416,7 @@ public partial class MainWindow : Window, IWidgetHost
         {
             CloseGraph();
             PlusPopup.PlacementTarget = BarGrid;
-            PlusPopup.HorizontalOffset = (BarGrid.ActualWidth / 2.0) - 38; // centre the 36px button incl. margin
+            PlusPopup.HorizontalOffset = (BarGrid.ActualWidth / 2.0) - 90; // centre the pill under the bar
             PlusPopup.IsOpen = true;
             PopScale(PlusScale);
         }
@@ -425,16 +424,16 @@ public partial class MainWindow : Window, IWidgetHost
         {
             AddPopup.IsOpen = false;
             PlusPopup.IsOpen = false;
+            CloseOverlay();
             PersistLayout();
         }
-        UpdateContextMenuChecks();
     }
 
-    private void PlusButton_Click(object sender, MouseButtonEventArgs e)
-    {
-        e.Handled = true;
-        OpenAddMenu();
-    }
+    private void PlusButton_Click(object sender, RoutedEventArgs e) => OpenAddMenu();
+
+    private void LayoutButton_Click(object sender, RoutedEventArgs e) => ShowLayoutMenu((UIElement)sender);
+
+    private void ExitButton_Click(object sender, RoutedEventArgs e) => SetCustomize(false);
 
     public void OpenAddMenu()
     {
@@ -565,61 +564,182 @@ public partial class MainWindow : Window, IWidgetHost
 
     // =========================================================== context menu / mode
 
-    private ContextMenu? _ctx;
-    private MenuItem? _ctxCustomize;
-
-    private void BuildContextMenu()
+    private void ShowScrim()
     {
-        _ctx = new ContextMenu();
-
-        var settings = new MenuItem { Header = "Settings…" };
-        settings.Click += (_, _) => OpenSettings();
-        _ctx.Items.Add(settings);
-
-        _ctxCustomize = new MenuItem { Header = "Customize Widgets", IsCheckable = true };
-        _ctxCustomize.Click += (_, _) => ToggleCustomize();
-        _ctx.Items.Add(_ctxCustomize);
-
-        var visibility = new MenuItem { Header = "Visibility" };
-        foreach (VisibilityMode m in Enum.GetValues<VisibilityMode>())
-        {
-            var item = new MenuItem
-            {
-                Header = m switch { VisibilityMode.AlwaysOn => "Always On", VisibilityMode.AutoHide => "Auto-Hide", _ => "Dynamic" },
-                IsCheckable = true
-            };
-            var captured = m;
-            item.Tag = m;
-            item.Click += (_, _) => ChangeMode(captured);
-            visibility.Items.Add(item);
-        }
-        visibility.SubmenuOpened += (_, _) =>
-        {
-            foreach (MenuItem mi in visibility.Items)
-                mi.IsChecked = (VisibilityMode)mi.Tag! == _settings.Mode;
-        };
-        _ctx.Items.Add(visibility);
-
-        _ctx.Items.Add(new Separator());
-
-        var quit = new MenuItem { Header = "Quit Lintel" };
-        quit.Click += (_, _) => Application.Current.Shutdown();
-        _ctx.Items.Add(quit);
-
-        _ctx.Opened += (_, _) => { _forceOpen = true; UpdateContextMenuChecks(); };
-        _ctx.Closed += (_, _) => _forceOpen = false;
+        Scrim.Width = SystemParameters.VirtualScreenWidth;
+        Scrim.Height = SystemParameters.VirtualScreenHeight;
+        ScrimPopup.Placement = PlacementMode.Absolute;
+        ScrimPopup.HorizontalOffset = SystemParameters.VirtualScreenLeft;
+        ScrimPopup.VerticalOffset = SystemParameters.VirtualScreenTop;
+        ScrimPopup.IsOpen = true;
     }
 
-    private void UpdateContextMenuChecks()
+    private void OpenOverlay(UIElement content, UIElement target, double horizontalOffset)
     {
-        if (_ctxCustomize != null) _ctxCustomize.IsChecked = Customizing;
+        OverlayHost.Content = content;
+        OverlayPopup.PlacementTarget = target;
+        OverlayPopup.Placement = PlacementMode.Bottom;
+        OverlayPopup.HorizontalOffset = horizontalOffset;
+        ShowScrim();
+        OverlayPopup.IsOpen = true;
+        _forceOpen = true;
+        GrowFromTop(OverlayScale, OverlayHost);
+    }
+
+    private void OpenOverlayCentered(FrameworkElement content, double width)
+    {
+        double off = (BarRoot.ActualWidth / 2.0) - (width / 2.0);
+        OpenOverlay(content, BarRoot, off);
+    }
+
+    private void CloseOverlay()
+    {
+        OverlayPopup.IsOpen = false;
+        ScrimPopup.IsOpen = false;
+        OverlayHost.Content = null;
+        if (!Customizing) _forceOpen = false;
+    }
+
+    private void Scrim_Click(object sender, MouseButtonEventArgs e) => CloseOverlay();
+
+    // ---- themed menu construction (no OS menus / windows) ----
+
+    private sealed record MenuRow(string Label, Action? OnClick, bool Checked = false, bool Separator = false, bool Accent = false);
+
+    private static MenuRow Sep() => new("", null, Separator: true);
+
+    private FrameworkElement BuildMenuCard(IEnumerable<MenuRow> rows, double width = 230)
+    {
+        var stack = new StackPanel { Width = width };
+        foreach (var row in rows)
+        {
+            if (row.Separator)
+            {
+                stack.Children.Add(new Border
+                {
+                    Height = 1,
+                    Background = new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF)),
+                    Margin = new Thickness(8, 5, 8, 5)
+                });
+                continue;
+            }
+
+            var rowBorder = new Border
+            {
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(10, 7, 10, 7),
+                Cursor = Cursors.Hand,
+                Background = Brushes.Transparent
+            };
+            var content = new DockPanel { LastChildFill = true };
+            var check = new TextBlock
+            {
+                Text = row.Checked ? "✓" : "",
+                Width = 18,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x0A, 0x84, 0xFF)),
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            DockPanel.SetDock(check, Dock.Left);
+            content.Children.Add(check);
+            content.Children.Add(new TextBlock
+            {
+                Text = row.Label,
+                Foreground = row.Accent ? new SolidColorBrush(Color.FromRgb(0xFF, 0x6B, 0x6B)) : Brushes.White,
+                FontSize = 13,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            rowBorder.Child = content;
+
+            var capt = row;
+            rowBorder.MouseEnter += (_, _) => rowBorder.Background = new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF));
+            rowBorder.MouseLeave += (_, _) => rowBorder.Background = Brushes.Transparent;
+            rowBorder.MouseLeftButtonDown += (_, ev) =>
+            {
+                ev.Handled = true;
+                CloseOverlay();
+                capt.OnClick?.Invoke();
+            };
+            stack.Children.Add(rowBorder);
+        }
+
+        return new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)),
+            CornerRadius = new CornerRadius(13),
+            Padding = new Thickness(6),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black },
+            Child = stack
+        };
     }
 
     private void OnBarRightClick(object sender, MouseButtonEventArgs e)
     {
-        if (_ctx == null) return;
-        _ctx.PlacementTarget = this;
-        _ctx.IsOpen = true;
+        double cursorX = e.GetPosition(BarRoot).X;
+        var rows = new List<MenuRow>
+        {
+            new("Settings…", OpenSettings),
+            new(Customizing ? "Exit Customize" : "Customize Widgets", ToggleCustomize, Checked: Customizing),
+            Sep(),
+            new("Always On", () => ChangeMode(VisibilityMode.AlwaysOn), Checked: _settings.Mode == VisibilityMode.AlwaysOn),
+            new("Auto-Hide", () => ChangeMode(VisibilityMode.AutoHide), Checked: _settings.Mode == VisibilityMode.AutoHide),
+            new("Dynamic",   () => ChangeMode(VisibilityMode.Dynamic),  Checked: _settings.Mode == VisibilityMode.Dynamic),
+            Sep(),
+            new("About Lintel", ShowAbout),
+            new("Quit Lintel", () => Application.Current.Shutdown(), Accent: true)
+        };
+        double off = Math.Clamp(cursorX - 20, 8, Math.Max(8, BarRoot.ActualWidth - 250));
+        OpenOverlay(BuildMenuCard(rows), BarRoot, off);
+    }
+
+    // ---- quick layout presets ----
+
+    private static readonly (string Name, string[] L, string[] C, string[] R)[] Presets =
+    {
+        ("Balanced",    new[]{"activeapp"}, new[]{"cpu","ram","gpu"},                  new[]{"mode","date","clock","settings"}),
+        ("Minimal",     new[]{"activeapp"}, System.Array.Empty<string>(),             new[]{"clock","settings"}),
+        ("Performance", new[]{"activeapp"}, new[]{"cpu","ram","gpu","disk","net"},     new[]{"clock","settings"}),
+        ("Centered",    System.Array.Empty<string>(), new[]{"activeapp","cpu","ram","clock"}, new[]{"settings"}),
+        ("Everything",  new[]{"activeapp"}, new[]{"cpu","ram","gpu","disk","net","battery"}, new[]{"mode","date","clock","settings"}),
+    };
+
+    private void ShowLayoutMenu(UIElement target)
+    {
+        var rows = Presets.Select(p => new MenuRow(p.Name, () => ApplyPreset(p.Name))).ToList();
+        double off = target.TranslatePoint(new Point(0, 0), BarRoot).X - 20;
+        off = Math.Clamp(off, 8, Math.Max(8, BarRoot.ActualWidth - 200));
+        OpenOverlay(BuildMenuCard(rows, 190), BarRoot, off);
+    }
+
+    private void ApplyPreset(string name)
+    {
+        var p = System.Array.Find(Presets, x => x.Name == name);
+        if (p.Name == null) return;
+        _settings.LeftWidgets = p.L.ToList();
+        _settings.CenterWidgets = p.C.ToList();
+        _settings.RightWidgets = p.R.ToList();
+        _settings.Save();
+        RebuildWidgets();
+    }
+
+    // ---- about ----
+
+    private void ShowAbout()
+    {
+        var stack = new StackPanel { Width = 300 };
+        stack.Children.Add(new TextBlock { Text = "Lintel", FontWeight = FontWeights.Bold, FontSize = 20, Foreground = Brushes.White });
+        stack.Children.Add(new TextBlock { Text = "A macOS / Linux-style top bar for Windows 11.", Foreground = new SolidColorBrush(Color.FromRgb(0xC0, 0xC0, 0xC5)), FontSize = 12.5, Margin = new Thickness(0, 6, 0, 0), TextWrapping = TextWrapping.Wrap });
+        stack.Children.Add(new TextBlock { Text = "Version 1.1  ·  Dynamic widget edition", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 11, Margin = new Thickness(0, 10, 0, 0) });
+
+        var card = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)),
+            CornerRadius = new CornerRadius(14),
+            Padding = new Thickness(18, 16, 18, 16),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black },
+            Child = stack
+        };
+        OpenOverlayCentered(card, 336);
     }
 
     private void CycleMode()
@@ -645,17 +765,15 @@ public partial class MainWindow : Window, IWidgetHost
 
     private void OpenSettings()
     {
-        _forceOpen = true;
-        var win = new SettingsWindow(_settings);
-        win.SettingsApplied += () =>
+        var panel = new SettingsPanel(_settings);
+        panel.SettingsApplied += () =>
         {
             ApplySettings();
             ApplyMode();
             StartupManager.Apply(_settings.LaunchAtStartup);
         };
-        win.Closed += (_, _) => _forceOpen = false;
-        win.Show();
-        win.Activate();
+        panel.CloseRequested += CloseOverlay;
+        OpenOverlayCentered(panel, 452);
     }
 
     public void OpenSettingsFromTray() => OpenSettings();

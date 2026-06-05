@@ -18,15 +18,22 @@ The bar is built from widgets arranged into three zones — **left**, **center**
 
 ### Customize mode
 
-Right-click the bar (or use the tray icon) → **Customize Widgets**:
+Right-click the bar (or use the tray icon) → **Customize Widgets**. A floating **pill toolbar** appears under the bar with three buttons:
 
-- A floating **+ button** appears under the bar — click it to **add** any widget
+- **Quick layouts** (left) — pick a preset arrangement: *Balanced, Minimal, Performance, Centered, Everything*
+- **＋ Add** (center) — add any widget that isn't already on the bar
+- **✕ Done** (right) — exit customize mode
+
+While customizing:
+
 - Each widget gets a **×** badge to remove it
 - **Drag** widgets to reorder them; they fluidly slide out of the way
 - Drag toward the middle to **snap a widget to the center** zone
-- Layout is saved automatically; right-click → *Customize Widgets* again (or the tray) to finish
+- Layout is saved automatically
 
-Submenus, the add picker, and hover graphs all animate by scaling smoothly out of the bar.
+### One cohesive app — no pop-up windows
+
+Every menu is rendered **in-app, themed to match the bar, and grows fluidly out of it** — the right-click menu, the settings panel, the quick-layout picker, the add-widget picker, the about card, and the hover graphs. Nothing opens a separate OS window, and even the system-tray menu is dark-themed to match.
 
 ## Visibility modes
 

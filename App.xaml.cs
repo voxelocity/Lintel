@@ -47,7 +47,14 @@ public partial class App : Application
             Text = "Lintel"
         };
 
-        var menu = new WinForms.ContextMenuStrip();
+        var menu = new WinForms.ContextMenuStrip
+        {
+            RenderMode = WinForms.ToolStripRenderMode.Professional,
+            BackColor = Color.FromArgb(31, 31, 35),
+            ForeColor = Color.White,
+            ShowImageMargin = false
+        };
+        menu.Renderer = new WinForms.ToolStripProfessionalRenderer(new DarkMenuColors()) { RoundedEdges = true };
 
         menu.Items.Add("Settings…", null, (_, _) => _bar?.OpenSettingsFromTray());
         menu.Items.Add("Customize Widgets", null, (_, _) => _bar?.ToggleCustomizeFromTray());
@@ -66,8 +73,47 @@ public partial class App : Application
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Quit Lintel", null, (_, _) => Shutdown());
 
+        ThemeMenuItems(menu.Items);
+
         _tray.ContextMenuStrip = menu;
         _tray.DoubleClick += (_, _) => _bar?.OpenSettingsFromTray();
+    }
+
+    private static void ThemeMenuItems(WinForms.ToolStripItemCollection items)
+    {
+        foreach (WinForms.ToolStripItem item in items)
+        {
+            item.ForeColor = Color.White;
+            if (item is WinForms.ToolStripMenuItem mi && mi.HasDropDownItems)
+            {
+                mi.DropDown.BackColor = Color.FromArgb(31, 31, 35);
+                ThemeMenuItems(mi.DropDownItems);
+            }
+        }
+    }
+
+    /// <summary>Dark palette so the tray menu matches the bar.</summary>
+    private sealed class DarkMenuColors : WinForms.ProfessionalColorTable
+    {
+        private static readonly Color Bg = Color.FromArgb(31, 31, 35);
+        private static readonly Color Hover = Color.FromArgb(54, 54, 60);
+        private static readonly Color Accent = Color.FromArgb(10, 132, 255);
+
+        public override Color ToolStripDropDownBackground => Bg;
+        public override Color MenuBorder => Color.FromArgb(60, 60, 66);
+        public override Color MenuItemBorder => Hover;
+        public override Color MenuItemSelected => Hover;
+        public override Color MenuItemSelectedGradientBegin => Hover;
+        public override Color MenuItemSelectedGradientEnd => Hover;
+        public override Color MenuItemPressedGradientBegin => Bg;
+        public override Color MenuItemPressedGradientEnd => Bg;
+        public override Color ImageMarginGradientBegin => Bg;
+        public override Color ImageMarginGradientMiddle => Bg;
+        public override Color ImageMarginGradientEnd => Bg;
+        public override Color SeparatorDark => Color.FromArgb(60, 60, 66);
+        public override Color SeparatorLight => Color.FromArgb(60, 60, 66);
+        public override Color CheckBackground => Accent;
+        public override Color CheckSelectedBackground => Accent;
     }
 
     private void AddModeItem(WinForms.ToolStripMenuItem parent, string label, VisibilityMode mode)

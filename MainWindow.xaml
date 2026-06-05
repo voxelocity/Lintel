@@ -15,8 +15,33 @@
         FontFamily="Segoe UI"
         Title="Lintel">
 
+    <Window.Resources>
+        <!-- Round tool button used in the customize pill -->
+        <Style x:Key="RoundTool" TargetType="Button">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Background" Value="#26FFFFFF"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="3,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="16">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="#3CFFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Grid>
-        <!-- The bar itself; the slide transform reveals/conceals it from the top edge -->
+        <!-- The bar itself; slide transform reveals/conceals it from the top edge -->
         <Border x:Name="BarRoot"
                 Background="{Binding BarBackground, RelativeSource={RelativeSource AncestorType=Window}}">
             <Border.RenderTransform>
@@ -58,21 +83,58 @@
             </Border>
         </Popup>
 
-        <!-- Floating + button shown in customize mode -->
+        <!-- Customize pill: layout selector · add · exit -->
         <Popup x:Name="PlusPopup" AllowsTransparency="True" Placement="Bottom"
                StaysOpen="True" PopupAnimation="None" VerticalOffset="8">
-            <Grid Margin="20">
-                <Border x:Name="PlusButton" Width="36" Height="36" CornerRadius="18"
-                        Background="#FF0A84FF" Cursor="Hand" RenderTransformOrigin="0.5,0.5"
-                        MouseLeftButtonDown="PlusButton_Click">
+            <Grid Margin="24,12,24,16">
+                <Border Background="#F22A2A2E" CornerRadius="24" Padding="5" RenderTransformOrigin="0.5,0.5">
                     <Border.Effect>
-                        <DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.55" Color="#FF0A84FF"/>
+                        <DropShadowEffect BlurRadius="20" ShadowDepth="3" Opacity="0.5" Color="Black"/>
                     </Border.Effect>
                     <Border.RenderTransform>
                         <ScaleTransform x:Name="PlusScale" ScaleX="1" ScaleY="1"/>
                     </Border.RenderTransform>
-                    <TextBlock Text="" FontFamily="Segoe MDL2 Assets" FontSize="15"
-                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal">
+                        <!-- Quick layout selector -->
+                        <Button Style="{StaticResource RoundTool}" Click="LayoutButton_Click" ToolTip="Quick layouts">
+                            <StackPanel Orientation="Horizontal">
+                                <Rectangle Width="3.2" Height="13" RadiusX="1.6" RadiusY="1.6" Fill="White" Margin="1.4,0"/>
+                                <Rectangle Width="5.5" Height="13" RadiusX="1.6" RadiusY="1.6" Fill="White" Margin="1.4,0"/>
+                                <Rectangle Width="3.2" Height="13" RadiusX="1.6" RadiusY="1.6" Fill="White" Margin="1.4,0"/>
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Add widget (accent) -->
+                        <Button x:Name="PlusButton" Width="40" Height="40" Click="PlusButton_Click"
+                                Background="#FF0A84FF" Cursor="Hand" Margin="3,0" ToolTip="Add widget">
+                            <Button.Effect>
+                                <DropShadowEffect BlurRadius="14" ShadowDepth="0" Opacity="0.7" Color="#FF0A84FF"/>
+                            </Button.Effect>
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="pb" Background="{TemplateBinding Background}" CornerRadius="20">
+                                        <Grid Width="18" Height="18">
+                                            <Rectangle Width="16" Height="3" RadiusX="1.5" RadiusY="1.5" Fill="White"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Rectangle Width="3" Height="16" RadiusX="1.5" RadiusY="1.5" Fill="White"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="pb" Property="Background" Value="#FF3094FF"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Exit customize -->
+                        <Button Style="{StaticResource RoundTool}" Click="ExitButton_Click" ToolTip="Done">
+                            <Path Stroke="White" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M0,0 L11,11 M11,0 L0,11"/>
+                        </Button>
+                    </StackPanel>
                 </Border>
             </Grid>
         </Popup>
@@ -88,12 +150,29 @@
                 <Border.RenderTransform>
                     <ScaleTransform x:Name="AddScale" ScaleX="1" ScaleY="1"/>
                 </Border.RenderTransform>
-                <StackPanel Width="200">
+                <StackPanel Width="210">
                     <TextBlock Text="ADD WIDGET" Foreground="#FF8E8E93" FontSize="10"
                                FontWeight="SemiBold" Margin="4,2,0,8"/>
                     <WrapPanel x:Name="AddList"/>
                 </StackPanel>
             </Border>
+        </Popup>
+
+        <!-- Full-screen scrim catches outside clicks to dismiss themed menus -->
+        <Popup x:Name="ScrimPopup" AllowsTransparency="True" Placement="Absolute" StaysOpen="True">
+            <Border x:Name="Scrim" Background="#01000000" MouseLeftButtonDown="Scrim_Click"/>
+        </Popup>
+
+        <!-- Themed overlay hosting context menu / settings / about (no separate windows) -->
+        <Popup x:Name="OverlayPopup" AllowsTransparency="True" Placement="Bottom"
+               StaysOpen="True" PopupAnimation="None" VerticalOffset="6">
+            <Grid Margin="10,0,10,12">
+                <ContentPresenter x:Name="OverlayHost" RenderTransformOrigin="0.5,0">
+                    <ContentPresenter.RenderTransform>
+                        <ScaleTransform x:Name="OverlayScale" ScaleX="1" ScaleY="1"/>
+                    </ContentPresenter.RenderTransform>
+                </ContentPresenter>
+            </Grid>
         </Popup>
     </Grid>
 </Window>
