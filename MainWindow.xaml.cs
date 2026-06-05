@@ -31,6 +31,7 @@ public partial class MainWindow : Window, IWidgetHost
     private IntPtr _hwnd;
     private AppBarManager? _appBar;
     private PerfMonitor? _perf;
+    private MediaService? _media;
 
     private readonly DispatcherTimer _tick;     // visibility + foreground polling
     private readonly DispatcherTimer _clock;    // 1s content refresh
@@ -86,6 +87,7 @@ public partial class MainWindow : Window, IWidgetHost
     public bool Customizing { get; private set; }
     public string ActiveAppName => _activeAppName;
     public Metric GetMetric(string key) => _perf!.Get(key);
+    public MediaService Media => _media!;
 
     public void OnModeClicked() => CycleMode();
     public void OnSettingsClicked() => OpenSettings();
@@ -103,6 +105,10 @@ public partial class MainWindow : Window, IWidgetHost
         _appBar = new AppBarManager(_hwnd);
         _perf = new PerfMonitor(Dispatcher);
         _perf.Updated += () => { if (GraphPopup.IsOpen && _graphMetric != null) UpdateGraph(_graphMetric); };
+
+        _media = new MediaService(Dispatcher);
+        _media.Changed += () => { foreach (var w in _allWidgets) if (w.Descriptor.Kind == WidgetKind.Media) w.UpdateMedia(); };
+        _media.Start();
 
         ApplySettings();
         ApplyMode(initial: true);
@@ -125,24 +131,61 @@ public partial class MainWindow : Window, IWidgetHost
     private bool _backdrop;
     private Color _backdropTint;
 
+    private bool _fluid;
+
     public void ApplySettings()
     {
         var theme = Themes.For(_settings.Theme, _settings.WidgetCornerRadius);
         _backdrop = theme.Acrylic;
         _backdropTint = theme.AcrylicTint;
+        _fluid = theme.FluidDropdowns;
 
-        // With acrylic the bar background is near-transparent (still hit-testable) so the
-        // blur shows; otherwise it's the user's solid translucent colour.
-        BarBackground = _backdrop
-            ? new SolidColorBrush(Color.FromArgb(0x01, 0, 0, 0))
-            : BrushFrom(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E));
+        // Islands: transparent bar with floating zone pills (gaps show desktop).
+        // Acrylic: near-transparent (hit-testable) so the blur shows. Else: solid colour.
+        BarBackground = theme.SeparatedZones
+            ? new SolidColorBrush(Color.FromArgb(0x00, 0, 0, 0))
+            : _backdrop
+                ? new SolidColorBrush(Color.FromArgb(0x01, 0, 0, 0))
+                : BrushFrom(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E));
         Foreground = BrushFrom(_settings.ForegroundColor, Color.FromArgb(0xFF, 0xF2, 0xF2, 0xF7));
 
         BottomLine.Visibility = theme.BottomHighlight ? Visibility.Visible : Visibility.Collapsed;
 
         RebuildWidgets();
+        ApplyZoneStyle(theme);
         ApplyLayout();
         ApplyBackdrop(_shown && _backdrop);
+    }
+
+    private void ApplyZoneStyle(ThemeDef theme)
+    {
+        var zones = new[] { (ZoneLeft, PanelLeft), (ZoneCenter, PanelCenter), (ZoneRight, PanelRight) };
+        if (theme.SeparatedZones)
+        {
+            double pillH = Math.Max(20, _settings.BarHeight - 6);
+            var bg = new SolidColorBrush(theme.ZoneBackground); bg.Freeze();
+            foreach (var (zone, panel) in zones)
+            {
+                zone.Background = bg;
+                zone.CornerRadius = new CornerRadius(pillH / 2.0);
+                zone.Padding = new Thickness(8, 0, 8, 0);
+                zone.Margin = new Thickness(3, 3, 3, 3);
+                zone.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 12, ShadowDepth = 1, Opacity = 0.35, Color = Colors.Black };
+                zone.Visibility = panel.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+        else
+        {
+            foreach (var (zone, panel) in zones)
+            {
+                zone.Background = Brushes.Transparent;
+                zone.CornerRadius = new CornerRadius(0);
+                zone.Padding = new Thickness(0);
+                zone.Margin = new Thickness(0);
+                zone.Effect = null;
+                zone.Visibility = Visibility.Visible;
+            }
+        }
     }
 
     private void ApplyBackdrop(bool enabled)
@@ -414,6 +457,7 @@ public partial class MainWindow : Window, IWidgetHost
         GraphTitle.Text = metric.Name.ToUpperInvariant();
         GraphView.Kind = Widgets.MetricStyle.For(metric.Key).Graph;
         GraphPopup.PlacementTarget = view;
+        GraphPopup.VerticalOffset = _fluid ? 1 : 6;
         UpdateGraph(metric);
         LoadTopProcesses(metric.Key);
 
@@ -680,15 +724,27 @@ public partial class MainWindow : Window, IWidgetHost
 
     // =========================================================== animations
 
-    private static void GrowFromTop(ScaleTransform scale, FrameworkElement card)
+    private void GrowFromTop(ScaleTransform scale, FrameworkElement card)
     {
         card.RenderTransformOrigin = new Point(0.5, 0);
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(0.55, 1, TimeSpan.FromMilliseconds(170)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(0.9, 1, TimeSpan.FromMilliseconds(170)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
-        card.BeginAnimation(OpacityProperty,
-            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150)));
+        if (_fluid)
+        {
+            // Springy Dynamic-Island-style emergence.
+            var ease = new BackEase { Amplitude = 0.55, EasingMode = EasingMode.EaseOut };
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty,
+                new DoubleAnimation(0.0, 1, TimeSpan.FromMilliseconds(340)) { EasingFunction = ease });
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty,
+                new DoubleAnimation(0.55, 1, TimeSpan.FromMilliseconds(340)) { EasingFunction = new BackEase { Amplitude = 0.3, EasingMode = EasingMode.EaseOut } });
+            card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(120)));
+        }
+        else
+        {
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty,
+                new DoubleAnimation(0.55, 1, TimeSpan.FromMilliseconds(170)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty,
+                new DoubleAnimation(0.9, 1, TimeSpan.FromMilliseconds(170)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+            card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150)));
+        }
     }
 
     private static void PopScale(ScaleTransform scale)
@@ -718,6 +774,7 @@ public partial class MainWindow : Window, IWidgetHost
         OverlayPopup.PlacementTarget = target;
         OverlayPopup.Placement = PlacementMode.Bottom;
         OverlayPopup.HorizontalOffset = horizontalOffset;
+        OverlayPopup.VerticalOffset = _fluid ? 1 : 6;
         ShowScrim();
         OverlayPopup.IsOpen = true;
         _forceOpen = true;
@@ -1060,6 +1117,118 @@ public partial class MainWindow : Window, IWidgetHost
         double off = view.TranslatePoint(new Point(0, 0), BarRoot).X - 10;
         off = Math.Clamp(off, 8, Math.Max(8, BarRoot.ActualWidth - 300));
         OpenOverlay(card, BarRoot, off);
+    }
+
+    // ---- expanded media player ----
+
+    public void ShowMediaPanel(WidgetView view)
+    {
+        var accent = (Color)ColorConverter.ConvertFromString(_settings.AccentColor);
+        const double W = 320;
+        var panel = new StackPanel { Width = W };
+
+        // header: cover + title/artist
+        var header = new Grid();
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(66) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var coverBorder = new Border { Width = 64, Height = 64, CornerRadius = new CornerRadius(8), ClipToBounds = true, Background = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)), VerticalAlignment = VerticalAlignment.Top };
+        var coverImg = new Image { Stretch = Stretch.UniformToFill };
+        var coverPh = new System.Windows.Shapes.Path { Data = Widgets.Icons.Get("media"), Fill = new SolidColorBrush(accent), Stretch = Stretch.Uniform, Width = 30, Height = 30, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var coverInner = new Grid(); coverInner.Children.Add(coverPh); coverInner.Children.Add(coverImg);
+        coverBorder.Child = coverInner;
+        Grid.SetColumn(coverBorder, 0);
+        header.Children.Add(coverBorder);
+
+        var titleStack = new StackPanel { Margin = new Thickness(12, 2, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        var titleTb = new TextBlock { Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = W - 90 };
+        var artistTb = new TextBlock { Foreground = new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xA6)), FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = W - 90, Margin = new Thickness(0, 2, 0, 0) };
+        titleStack.Children.Add(titleTb);
+        titleStack.Children.Add(artistTb);
+        Grid.SetColumn(titleStack, 1);
+        header.Children.Add(titleStack);
+        panel.Children.Add(header);
+
+        // visualizer
+        var viz = new Controls.Visualizer { Height = 34, Bars = 18, BarColor = accent, Margin = new Thickness(0, 12, 0, 10) };
+        panel.Children.Add(viz);
+
+        // progress bar
+        var track = new Border { Height = 4, CornerRadius = new CornerRadius(2), Background = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)) };
+        var fill = new Border { Height = 4, CornerRadius = new CornerRadius(2), Background = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Left, Width = 0 };
+        var trackGrid = new Grid(); trackGrid.Children.Add(track); trackGrid.Children.Add(fill);
+        panel.Children.Add(trackGrid);
+
+        var times = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 5, 0, 0) };
+        var posTb = new TextBlock { Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 10.5 };
+        var durTb = new TextBlock { Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 10.5 };
+        DockPanel.SetDock(posTb, Dock.Left); DockPanel.SetDock(durTb, Dock.Right);
+        times.Children.Add(posTb); times.Children.Add(durTb);
+        panel.Children.Add(times);
+
+        // controls
+        var controls = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 10, 0, 2) };
+        var playPath = new System.Windows.Shapes.Path { Fill = Brushes.White, Stretch = Stretch.Uniform };
+        controls.Children.Add(MediaCtrl(Geometry.Parse("M11,2 L4,7 L11,12 Z M3,2 L1,2 L1,12 L3,12 Z"), () => _media!.Previous(), 16));
+        controls.Children.Add(MediaCtrlElem(playPath, () => _media!.TogglePlay(), 22));
+        controls.Children.Add(MediaCtrl(Geometry.Parse("M2,2 L9,7 L2,12 Z M11,2 L13,2 L13,12 L11,12 Z"), () => _media!.Next(), 16));
+        panel.Children.Add(controls);
+
+        var card = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)),
+            CornerRadius = new CornerRadius(16),
+            Padding = new Thickness(16, 14, 16, 12),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 26, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black },
+            Child = panel
+        };
+
+        void Update()
+        {
+            var m = _media!.Current;
+            titleTb.Text = m.HasMedia ? m.Title : "Nothing playing";
+            artistTb.Text = m.Artist;
+            coverImg.Source = m.Cover;
+            coverPh.Visibility = m.Cover == null ? Visibility.Visible : Visibility.Collapsed;
+            viz.Active = m.IsPlaying;
+            playPath.Data = m.IsPlaying
+                ? Geometry.Parse("M2,1 L5,1 L5,13 L2,13 Z M9,1 L12,1 L12,13 L9,13 Z")   // pause
+                : Geometry.Parse("M3,1 L13,7 L3,13 Z");                                   // play
+            double frac = m.Duration.TotalSeconds > 0 ? Math.Clamp(m.Position.TotalSeconds / m.Duration.TotalSeconds, 0, 1) : 0;
+            fill.Width = (W - 32) * frac;
+            posTb.Text = Fmt(m.Position);
+            durTb.Text = Fmt(m.Duration);
+        }
+        Update();
+        _media!.Changed += Update;
+        _overlayClosed = () => _media!.Changed -= Update;
+
+        double off = view.TranslatePoint(new Point(0, 0), BarRoot).X - 20;
+        off = Math.Clamp(off, 8, Math.Max(8, BarRoot.ActualWidth - W - 20));
+        OpenOverlay(card, BarRoot, off);
+    }
+
+    private static string Fmt(TimeSpan t) => t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
+
+    private Border MediaCtrl(Geometry geo, Action onClick, double size)
+    {
+        var path = new System.Windows.Shapes.Path { Data = geo, Fill = Brushes.White, Stretch = Stretch.Uniform, Width = size, Height = size };
+        return MediaCtrlElem(path, onClick, size);
+    }
+
+    private Border MediaCtrlElem(FrameworkElement content, Action onClick, double size)
+    {
+        if (content is System.Windows.Shapes.Path p) { p.Width = size; p.Height = size; }
+        var b = new Border
+        {
+            Width = size + 22, Height = size + 16, CornerRadius = new CornerRadius((size + 16) / 2),
+            Background = new SolidColorBrush(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF)),
+            Margin = new Thickness(7, 0, 7, 0), Cursor = Cursors.Hand,
+            Child = content
+        };
+        ((FrameworkElement)b.Child).HorizontalAlignment = HorizontalAlignment.Center;
+        ((FrameworkElement)b.Child).VerticalAlignment = VerticalAlignment.Center;
+        b.MouseLeftButtonDown += (_, e) => { e.Handled = true; onClick(); };
+        return b;
     }
 
     private void CycleMode()

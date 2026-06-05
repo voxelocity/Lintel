@@ -32,4 +32,10 @@ public interface IWidgetHost
 
     /// <summary>Drop-down with every resource graph (for the compact System Load widget).</summary>
     void ShowResourcePanel(WidgetView view);
+
+    /// <summary>Now-playing media (cover, title, controls) for the Media widget.</summary>
+    MediaService Media { get; }
+
+    /// <summary>Expanded media player drop-down.</summary>
+    void ShowMediaPanel(WidgetView view);
 }

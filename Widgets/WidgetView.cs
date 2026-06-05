@@ -79,6 +79,7 @@ public sealed class WidgetView : Border
         WidgetKind.Windows => BuildAppTabs(),
         WidgetKind.Workspaces => BuildWorkspaces(),
         WidgetKind.Load => BuildLoad(),
+        WidgetKind.Media => BuildMedia(),
         _ => BuildText(out _dynamicText, false)
     };
 
@@ -172,6 +173,42 @@ public sealed class WidgetView : Border
         row.Children.Add(IconPath("workspaces", IconColor(Accent), 14));
         row.Children.Add(Arrow("›", +1));   // ›
         return WrapWithBadge(row);
+    }
+
+    private Image? _mediaCover;
+    private Path? _mediaPlaceholder;
+    private Controls.Visualizer? _mediaViz;
+
+    private UIElement BuildMedia()
+    {
+        double sz = Math.Max(18, _host.Settings.BarHeight - 10);
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        var coverGrid = new Grid { Width = sz, Height = sz };
+        var coverBorder = new Border { CornerRadius = new CornerRadius(4), ClipToBounds = true, Background = Frozen(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)) };
+        _mediaPlaceholder = IconPath("media", IconColor(Accent), sz * 0.55);
+        _mediaCover = new Image { Stretch = Stretch.UniformToFill };
+        var inner = new Grid();
+        inner.Children.Add(_mediaPlaceholder);
+        inner.Children.Add(_mediaCover);
+        coverBorder.Child = inner;
+        coverGrid.Children.Add(coverBorder);
+        row.Children.Add(coverGrid);
+
+        _mediaViz = new Controls.Visualizer { Width = 26, Height = sz, BarColor = IconColor(Accent), Bars = 5, Margin = new Thickness(7, 0, 1, 0), VerticalAlignment = VerticalAlignment.Center };
+        row.Children.Add(_mediaViz);
+
+        UpdateMedia();
+        return WrapWithBadge(row);
+    }
+
+    public void UpdateMedia()
+    {
+        if (_mediaCover == null) return;
+        var m = _host.Media.Current;
+        _mediaCover.Source = m.Cover;
+        if (_mediaPlaceholder != null) _mediaPlaceholder.Visibility = m.Cover == null ? Visibility.Visible : Visibility.Collapsed;
+        if (_mediaViz != null) _mediaViz.Active = m.IsPlaying;
     }
 
     private UIElement BuildLoad()
@@ -307,6 +344,7 @@ public sealed class WidgetView : Border
             case WidgetKind.Note: RefreshNote(); break;
             case WidgetKind.Windows: RefreshAppTabs(); break;
             case WidgetKind.Load: RefreshLoad(); break;
+            case WidgetKind.Media: UpdateMedia(); break;
             case WidgetKind.Mode: UpdateModeText(); break;
             default: if (_dynamicText != null) Refresh(_dynamicText); break;
         }
@@ -411,6 +449,7 @@ public sealed class WidgetView : Border
             case WidgetKind.Settings: _host.OnSettingsClicked(); break;
             case WidgetKind.Note: _host.ShowNote(this); break;
             case WidgetKind.Load: _host.ShowResourcePanel(this); break;
+            case WidgetKind.Media: _host.ShowMediaPanel(this); break;
         }
     }
 

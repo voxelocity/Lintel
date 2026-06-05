@@ -22,8 +22,18 @@ public static class Icons
         "windows" => Windows(),
         "workspaces" => Workspaces(),
         "settings" => Gear(),
+        "media" => Media(),
         _ => null
     };
+
+    private static Geometry Media()
+    {
+        var g = new GeometryGroup();
+        g.Children.Add(E(7.5, 17.5, 2.8));                              // note head
+        g.Children.Add(R(9.3, 6, 1.7, 12));                            // stem
+        g.Children.Add(Geometry.Parse("M9.3,6 L17,4 L17,7.5 L9.3,9.5 Z")); // flag
+        return Freeze(g);
+    }
 
     private static Geometry Freeze(Geometry g) { g.Freeze(); return g; }
     private static Point Polar(double cx, double cy, double r, double ang) => new(cx + r * Math.Cos(ang), cy + r * Math.Sin(ang));

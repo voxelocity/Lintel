@@ -8,8 +8,12 @@ public enum LintelTheme
 {
     /// <summary>Default: each widget on a rounded, filled bubble with colour-coded icons.</summary>
     Squircles,
-    /// <summary>Flat PowerToys-style bar: no bubbles, monochrome icons, tighter spacing.</summary>
-    Power
+    /// <summary>Flat PowerToys-style bar: acrylic blur, monochrome-ish icons, tighter spacing.</summary>
+    Power,
+    /// <summary>Each zone is its own floating rounded bar with gaps between them; fluid dropdowns.</summary>
+    Islands,
+    /// <summary>Like Power, but with fluid Dynamic-Island-style dropdowns.</summary>
+    Resin
 }
 
 public enum VisibilityMode

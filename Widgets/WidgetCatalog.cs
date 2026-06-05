@@ -1,6 +1,6 @@
 namespace Lintel.Widgets;
 
-public enum WidgetKind { Gauge, Clock, Date, ActiveApp, Mode, Settings, Note, Windows, Workspaces, Load }
+public enum WidgetKind { Gauge, Clock, Date, ActiveApp, Mode, Settings, Note, Windows, Workspaces, Load, Media }
 
 public sealed record WidgetDescriptor(string Key, string Name, WidgetKind Kind, string Glyph = "");
 
@@ -24,6 +24,7 @@ public static class WidgetCatalog
         new("windows",    "App Tabs",   WidgetKind.Windows,    ""),
         new("workspaces", "Workspaces", WidgetKind.Workspaces, ""),
         new("load",       "System Load",WidgetKind.Load,       ""),
+        new("media",      "Media",      WidgetKind.Media,      ""),
     };
 
     public static WidgetDescriptor? Find(string key) => All.FirstOrDefault(w => w.Key == key);

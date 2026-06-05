@@ -17,23 +17,45 @@ public sealed class ThemeDef
     public bool Acrylic;            // blur what's behind the bar
     public Color AcrylicTint;       // tint over the blur (A = tint strength)
     public bool BottomHighlight;    // light hairline along the bottom edge
+
+    public bool SeparatedZones;     // each zone is its own floating bar
+    public Color ZoneBackground;    // background of each floating zone (Islands)
+    public bool FluidDropdowns;     // springy Dynamic-Island-style menus
 }
 
 public static class Themes
 {
+    private static ThemeDef PowerLike(bool fluid) => new()
+    {
+        BubbleIdle = Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF),
+        CornerRadius = 5,
+        Padding = new Thickness(7, 0, 7, 0),
+        Spacing = 8,
+        IconSaturation = 0.5,
+        Acrylic = true,
+        AcrylicTint = Color.FromArgb(0xB0, 0x20, 0x20, 0x24),
+        BottomHighlight = true,
+        FluidDropdowns = fluid
+    };
+
     public static ThemeDef For(LintelTheme theme, double squircleCorner) => theme switch
     {
-        LintelTheme.Power => new ThemeDef
+        LintelTheme.Power => PowerLike(false),
+        LintelTheme.Resin => PowerLike(true),
+        LintelTheme.Islands => new ThemeDef
         {
-            BubbleIdle = Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF),  // flat: no bubble
-            BubbleHover = Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF),
-            CornerRadius = 5,
-            Padding = new Thickness(7, 0, 7, 0),
-            Spacing = 8,
-            IconSaturation = 0.5,                                  // muted colour
-            Acrylic = true,
-            AcrylicTint = Color.FromArgb(0xB0, 0x20, 0x20, 0x24),  // dark, slightly translucent
-            BottomHighlight = true
+            BubbleIdle = Color.FromArgb(0x16, 0xFF, 0xFF, 0xFF),
+            BubbleHover = Color.FromArgb(0x2A, 0xFF, 0xFF, 0xFF),
+            CornerRadius = 8,
+            Padding = new Thickness(8, 0, 8, 0),
+            Spacing = 4,
+            IconSaturation = 1.0,
+            Acrylic = false,
+            BottomHighlight = false,
+            SeparatedZones = true,
+            ZoneBackground = Color.FromArgb(0xE6, 0x1C, 0x1C, 0x1E),
+            FluidDropdowns = true
         },
         _ => new ThemeDef
         {
@@ -51,6 +73,8 @@ public static class Themes
     public static string DisplayName(LintelTheme t) => t switch
     {
         LintelTheme.Power => "Power",
+        LintelTheme.Islands => "Islands",
+        LintelTheme.Resin => "Resin",
         _ => "Squircles"
     };
 }

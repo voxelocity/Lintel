@@ -142,10 +142,12 @@ public partial class SettingsPanel : UserControl
     {
         var on = new SolidColorBrush(Color.FromRgb(0x0A, 0x84, 0xFF));
         var dim = new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xD5));
-        ThemeSquircles.Background = _selTheme == 0 ? on : Brushes.Transparent;
-        ThemePower.Background = _selTheme == 1 ? on : Brushes.Transparent;
-        ThemeSquircles.Foreground = _selTheme == 0 ? Brushes.White : dim;
-        ThemePower.Foreground = _selTheme == 1 ? Brushes.White : dim;
+        Button[] btns = { ThemeSquircles, ThemePower, ThemeIslands, ThemeResin };
+        for (int i = 0; i < btns.Length; i++)
+        {
+            btns[i].Background = _selTheme == i ? on : Brushes.Transparent;
+            btns[i].Foreground = _selTheme == i ? Brushes.White : dim;
+        }
     }
 
     // ---- view switching ----

@@ -17,6 +17,16 @@ The bar is built from widgets arranged into three zones — **left**, **center**
 - **App Tabs** — your open windows shown as taskbar-style tabs (focused one highlighted, click to switch). A compact mode shows just the focused window with an expand chevron that drops a vertical switcher.
 - **Quick Note** — a persistent scratch note; click to edit inline.
 - **Workspaces** — ‹ › arrows to switch virtual desktops.
+- **Media** — now-playing from the Windows media session. Compact shows the cover art + an audio visualizer; click to expand a player with a large cover, title/artist, progress bar, transport controls, and a bigger visualizer.
+
+## Themes
+
+Switch from the customize pill (theme button) or **Advanced settings → Theme**:
+
+- **Squircles** (default) — rounded, filled bubbles with full-colour icons.
+- **Power** — flat, PowerToys-style: acrylic blur behind the bar, a bottom highlight hairline, muted (desaturated) icons.
+- **Islands** — each zone (left / center / right) is its own floating rounded bar with gaps between them, and fluid dropdowns.
+- **Resin** — like Power, but with fluid Dynamic-Island-style dropdowns that spring out of the bar.
 
 **Hover any performance gauge** and a card grows out from under it with a **history graph whose style matches the metric** (smooth area for CPU/RAM/GPU, bars for Disk/Network, a line for Battery), live min / avg / max, **and the top processes using that resource**.
 
