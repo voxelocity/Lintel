@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 
@@ -20,10 +21,12 @@ public static class Icons
         "note" => Note(),
         "windows" => Windows(),
         "workspaces" => Workspaces(),
+        "settings" => Gear(),
         _ => null
     };
 
     private static Geometry Freeze(Geometry g) { g.Freeze(); return g; }
+    private static Point Polar(double cx, double cy, double r, double ang) => new(cx + r * Math.Cos(ang), cy + r * Math.Sin(ang));
     private static RectangleGeometry R(double x, double y, double w, double h, double r = 1) =>
         new(new Rect(x, y, w, h), r, r);
     private static EllipseGeometry E(double cx, double cy, double r) => new(new Point(cx, cy), r, r);
@@ -120,5 +123,31 @@ public static class Icons
         g.Children.Add(R(3, 7, 8, 10, 1.5));
         g.Children.Add(R(13, 7, 8, 10, 1.5));
         return Freeze(g);
+    }
+
+    // Flat solid gear (toothed disc with a centre hole)
+    private static Geometry Gear()
+    {
+        const int teeth = 8;
+        double cx = 12, cy = 12, rOut = 11, rIn = 8.4, hole = 4.4;
+        double pitch = Math.PI * 2 / teeth;
+        double tw = pitch * 0.32; // half-width of each tooth tip
+
+        var pts = new List<Point>();
+        for (int i = 0; i < teeth; i++)
+        {
+            double c = i * pitch;
+            pts.Add(Polar(cx, cy, rIn, c - tw));
+            pts.Add(Polar(cx, cy, rOut, c - tw));
+            pts.Add(Polar(cx, cy, rOut, c + tw));
+            pts.Add(Polar(cx, cy, rIn, c + tw));
+        }
+
+        var fig = new PathFigure { StartPoint = pts[0], IsClosed = true };
+        for (int i = 1; i < pts.Count; i++) fig.Segments.Add(new LineSegment(pts[i], true));
+        var outline = new PathGeometry();
+        outline.Figures.Add(fig);
+
+        return Freeze(new CombinedGeometry(GeometryCombineMode.Exclude, outline, E(cx, cy, hole)));
     }
 }

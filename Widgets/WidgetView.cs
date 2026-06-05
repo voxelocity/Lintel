@@ -74,7 +74,7 @@ public sealed class WidgetView : Border
         WidgetKind.Date => BuildText(out _dynamicText, semibold: false, opacity: 0.9),
         WidgetKind.ActiveApp => BuildText(out _dynamicText, semibold: true),
         WidgetKind.Mode => BuildMode(),
-        WidgetKind.Settings => BuildGlyph("⚙"),     // gear
+        WidgetKind.Settings => BuildIconWidget("settings", 16),
         WidgetKind.Note => BuildNote(),
         WidgetKind.Windows => BuildAppTabs(),
         WidgetKind.Workspaces => BuildWorkspaces(),
@@ -91,19 +91,6 @@ public sealed class WidgetView : Border
 
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
-        if (Key == "battery")
-        {
-            var bat = new BatteryIcon { VerticalAlignment = VerticalAlignment.Center, Saturation = _iconSat };
-            bat.SetBinding(BatteryIcon.PercentProperty, new Binding(nameof(Metric.Percent)) { Source = _metric });
-            _metric.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Metric.Text)) bat.Charging = _metric.Text.Contains('⚡'); };
-            bat.Charging = _metric.Text.Contains('⚡');
-            row.Children.Add(bat);
-        }
-        else
-        {
-            row.Children.Add(IconPath(Key, IconColor(sig), 17));
-        }
-
         // Fixed value width so the bubble never resizes as the number changes.
         double valW = Key switch { "ram" => 86, "net" => 68, _ => 36 };
         var value = new TextBlock
@@ -112,9 +99,29 @@ public sealed class WidgetView : Border
             VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 1, 0),
             Width = valW, TextAlignment = TextAlignment.Left
         };
-        value.SetBinding(TextBlock.TextProperty, new Binding(nameof(Metric.Text)) { Source = _metric });
-        row.Children.Add(value);
 
+        if (Key == "battery")
+        {
+            var bat = new BatteryIcon { VerticalAlignment = VerticalAlignment.Center, Saturation = _iconSat };
+            bat.SetBinding(BatteryIcon.PercentProperty, new Binding(nameof(Metric.Percent)) { Source = _metric });
+            row.Children.Add(bat);
+
+            // Charging is shown by the bolt inside the battery — keep the marker out of the text.
+            void UpdBattery()
+            {
+                bat.Charging = _metric.Text.Contains('⚡');
+                value.Text = _metric.Text.Replace("⚡", "").Trim();
+            }
+            UpdBattery();
+            _metric.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Metric.Text)) UpdBattery(); };
+        }
+        else
+        {
+            row.Children.Add(IconPath(Key, IconColor(sig), 17));
+            value.SetBinding(TextBlock.TextProperty, new Binding(nameof(Metric.Text)) { Source = _metric });
+        }
+
+        row.Children.Add(value);
         return WrapWithBadge(row);
     }
 
@@ -140,10 +147,10 @@ public sealed class WidgetView : Border
         return WrapWithBadge(row);
     }
 
-    private UIElement BuildGlyph(string glyph)
+    private UIElement BuildIconWidget(string key, double size)
     {
-        var tb = new TextBlock { Text = glyph, FontSize = 14, Foreground = Foreground, VerticalAlignment = VerticalAlignment.Center };
-        return WrapWithBadge(tb);
+        var icon = IconPath(key, _fgColor, size);
+        return WrapWithBadge(icon);
     }
 
     // ---- interactive widgets ----
