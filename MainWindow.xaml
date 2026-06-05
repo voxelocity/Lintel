@@ -52,6 +52,8 @@
                 <c:AnimatedBarPanel x:Name="PanelLeft"   HorizontalAlignment="Left"   VerticalAlignment="Stretch"/>
                 <c:AnimatedBarPanel x:Name="PanelCenter" HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
                 <c:AnimatedBarPanel x:Name="PanelRight"  HorizontalAlignment="Right"  VerticalAlignment="Stretch"/>
+                <!-- Holds the lifted widget while dragging -->
+                <Canvas x:Name="DragLayer" IsHitTestVisible="False"/>
             </Grid>
         </Border>
 

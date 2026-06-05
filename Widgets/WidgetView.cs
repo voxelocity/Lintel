@@ -265,12 +265,13 @@ public sealed class WidgetView : Border
     {
         var grid = new Grid { VerticalAlignment = VerticalAlignment.Center };
         grid.Children.Add(content);
+        // Kept inside the bubble's top-right corner so the thin bar window never clips it.
         _removeBadge = new Border
         {
-            Width = 14, Height = 14, CornerRadius = new CornerRadius(7), Background = Frozen(Color.FromRgb(0xFF, 0x45, 0x3A)),
-            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -8, -12, 0),
+            Width = 15, Height = 15, CornerRadius = new CornerRadius(7.5), Background = Frozen(Color.FromRgb(0xFF, 0x45, 0x3A)),
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, -4, 0),
             Visibility = Visibility.Collapsed, Cursor = Cursors.Hand,
-            Child = new TextBlock { Text = "", FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 8, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+            Child = new TextBlock { Text = "✕", FontSize = 9, FontWeight = FontWeights.Bold, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, -1, 0, 0) }
         };
         _removeBadge.MouseLeftButtonDown += (s, e) => { e.Handled = true; _host.RemoveWidget(this); };
         grid.Children.Add(_removeBadge);
@@ -360,7 +361,21 @@ public sealed class WidgetView : Border
 
     private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (_host.Customizing) { _host.BeginWidgetDrag(this, e); e.Handled = true; }
+        if (!_host.Customizing) return;
+        // Don't start a drag when the click is on the remove (×) badge — let it delete.
+        if (_removeBadge != null && e.OriginalSource is DependencyObject src && IsWithin(src, _removeBadge)) return;
+        _host.BeginWidgetDrag(this, e);
+        e.Handled = true;
+    }
+
+    private static bool IsWithin(DependencyObject? node, DependencyObject ancestor)
+    {
+        while (node != null)
+        {
+            if (ReferenceEquals(node, ancestor)) return true;
+            node = VisualTreeHelper.GetParent(node);
+        }
+        return false;
     }
 
     private void OnMouseUp(object sender, MouseButtonEventArgs e)

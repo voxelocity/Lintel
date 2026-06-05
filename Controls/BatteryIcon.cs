@@ -70,9 +70,10 @@ public sealed class BatteryIcon : FrameworkElement
             var t = new TransformGroup();
             t.Children.Add(new ScaleTransform(0.7, 0.7));
             t.Children.Add(new TranslateTransform(w / 2 - 2.5, h / 2 - 4.5));
-            bolt.Transform = t;
             var bb = new SolidColorBrush(Colors.White); bb.Freeze();
+            dc.PushTransform(t);
             dc.DrawGeometry(bb, null, bolt);
+            dc.Pop();
         }
     }
 }

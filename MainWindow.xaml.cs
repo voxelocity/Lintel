@@ -53,6 +53,9 @@ public partial class MainWindow : Window, IWidgetHost
     // drag state
     private bool _dragActive;
     private WidgetView? _drag;
+    private double _dragGrabX;        // cursor offset within the grabbed widget
+    private Size _dragSize;           // grabbed widget size
+    private System.Windows.Shapes.Rectangle? _dropIndicator; // predictive landing outline
 
     // graph hover state
     private Metric? _graphMetric;
@@ -521,9 +524,42 @@ public partial class MainWindow : Window, IWidgetHost
     {
         _drag = view;
         _dragActive = true;
-        Panel.SetZIndex(view, 99);
-        view.Background = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
-        view.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 14, ShadowDepth = 2, Opacity = 0.6, Color = Colors.Black };
+        _dragGrabX = e.GetPosition(view).X;
+        _dragSize = new Size(view.ActualWidth, view.ActualHeight);
+
+        // Where would it land right now?
+        var pt = e.GetPosition(BarGrid);
+        var target = ZoneFor(pt.X);
+        int idx = InsertionIndex(target, pt.X);
+
+        // Lift the widget out of the flow and onto the drag layer.
+        ParentPanel(view)?.Children.Remove(view);
+        view.BeginAnimation(OpacityProperty, null);
+        view.Opacity = 0.92;
+        view.RenderTransformOrigin = new Point(0.5, 0.5);
+        view.RenderTransform = new ScaleTransform(1.06, 1.06);
+        view.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 16, ShadowDepth = 3, Opacity = 0.6, Color = Colors.Black };
+        DragLayer.Children.Add(view);
+        Canvas.SetTop(view, Math.Max(0, (BarGrid.ActualHeight - _dragSize.Height) / 2.0));
+        Canvas.SetLeft(view, pt.X - _dragGrabX);
+
+        // Dashed outline that previews the landing slot.
+        var accent = (Color)ColorConverter.ConvertFromString(_settings.AccentColor);
+        _dropIndicator = new System.Windows.Shapes.Rectangle
+        {
+            Width = _dragSize.Width,
+            Height = _dragSize.Height,
+            RadiusX = _settings.WidgetCornerRadius,
+            RadiusY = _settings.WidgetCornerRadius,
+            Stroke = new SolidColorBrush(Color.FromArgb(0xCC, accent.R, accent.G, accent.B)),
+            StrokeThickness = 1.6,
+            StrokeDashArray = new DoubleCollection { 3, 2 },
+            Fill = new SolidColorBrush(Color.FromArgb(0x22, accent.R, accent.G, accent.B)),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        if (idx > target.Children.Count) idx = target.Children.Count;
+        target.Children.Insert(idx, _dropIndicator);
+
         CaptureMouse();
     }
 
@@ -531,18 +567,24 @@ public partial class MainWindow : Window, IWidgetHost
     {
         if (!_dragActive || _drag == null) return;
         var pt = e.GetPosition(BarGrid);
-        var target = ZoneFor(pt.X);
-        var cur = ParentPanel(_drag);
-        if (cur == null) return;
+        Canvas.SetLeft(_drag, Math.Clamp(pt.X - _dragGrabX, 0, Math.Max(0, BarGrid.ActualWidth - _dragSize.Width)));
 
-        int curIdx = cur.Children.IndexOf(_drag);
-        int idx = InsertionIndexExcluding(target, pt.X, _drag);
+        UpdateDropIndicator(pt.X);
+    }
 
-        if (ReferenceEquals(target, cur) && idx == curIdx) return;
+    private void UpdateDropIndicator(double x)
+    {
+        if (_dropIndicator == null) return;
+        var target = ZoneFor(x);
+        int idx = InsertionIndex(target, x);
 
-        cur.Children.Remove(_drag);
+        var cur = VisualTreeHelper.GetParent(_dropIndicator) as AnimatedBarPanel;
+        int curIdx = cur?.Children.IndexOf(_dropIndicator) ?? -1;
+        if (ReferenceEquals(cur, target) && idx == curIdx) return;
+
+        cur?.Children.Remove(_dropIndicator);
         if (idx > target.Children.Count) idx = target.Children.Count;
-        target.Children.Insert(idx, _drag);
+        target.Children.Insert(idx, _dropIndicator);
     }
 
     private void OnWindowMouseUp(object sender, MouseButtonEventArgs e)
@@ -550,9 +592,22 @@ public partial class MainWindow : Window, IWidgetHost
         if (!_dragActive || _drag == null) return;
         _dragActive = false;
         ReleaseMouseCapture();
-        Panel.SetZIndex(_drag, 0);
+
+        // Drop where the indicator is.
+        var panel = VisualTreeHelper.GetParent(_dropIndicator) as AnimatedBarPanel ?? PanelCenter;
+        int idx = _dropIndicator != null ? panel.Children.IndexOf(_dropIndicator) : panel.Children.Count;
+        if (_dropIndicator != null) panel.Children.Remove(_dropIndicator);
+        _dropIndicator = null;
+
+        DragLayer.Children.Remove(_drag);
+        _drag.RenderTransform = null;
         _drag.Effect = null;
-        _drag.Background = new SolidColorBrush(Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF));
+        _drag.Opacity = 1;
+        _drag.Background = new SolidColorBrush(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
+
+        if (idx < 0 || idx > panel.Children.Count) idx = panel.Children.Count;
+        panel.Children.Insert(idx, _drag);
+
         _drag = null;
         PersistLayout();
     }
@@ -565,18 +620,18 @@ public partial class MainWindow : Window, IWidgetHost
         return PanelRight;
     }
 
-    private int InsertionIndexExcluding(AnimatedBarPanel panel, double x, WidgetView exclude)
+    /// <summary>Index among a panel's widgets where the cursor currently points.</summary>
+    private int InsertionIndex(AnimatedBarPanel panel, double x)
     {
         int idx = 0;
-        foreach (WidgetView c in panel.Children.OfType<WidgetView>())
+        foreach (var c in panel.Children.OfType<WidgetView>())
         {
-            if (ReferenceEquals(c, exclude)) continue;
             try
             {
                 double center = c.TranslatePoint(new Point(c.ActualWidth / 2.0, 0), BarGrid).X;
                 if (x > center) idx++;
             }
-            catch { /* not yet arranged */ }
+            catch { }
         }
         return idx;
     }
