@@ -1,4 +1,4 @@
-# Build output
+﻿# Build output
 [Bb]in/
 [Oo]bj/
 publish/
@@ -6,7 +6,7 @@ publish/
 *.exe
 *.pdb
 
-# Visual Studio / Rider
+# IDE
 .vs/
 .idea/
 *.user

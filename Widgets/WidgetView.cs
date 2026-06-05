@@ -66,7 +66,7 @@ public sealed class WidgetView : Border
         WidgetKind.Date => BuildText(out _dynamicText, semibold: false, opacity: 0.9),
         WidgetKind.ActiveApp => BuildText(out _dynamicText, semibold: true),
         WidgetKind.Mode => BuildMode(),
-        WidgetKind.Settings => BuildGlyph(""),
+        WidgetKind.Settings => BuildGlyph("⚙"),     // gear
         WidgetKind.Note => BuildNote(),
         WidgetKind.Windows => BuildAppTabs(),
         WidgetKind.Workspaces => BuildWorkspaces(),
@@ -131,7 +131,7 @@ public sealed class WidgetView : Border
 
     private UIElement BuildGlyph(string glyph)
     {
-        var tb = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 13, Foreground = Foreground, VerticalAlignment = VerticalAlignment.Center };
+        var tb = new TextBlock { Text = glyph, FontSize = 14, Foreground = Foreground, VerticalAlignment = VerticalAlignment.Center };
         return WrapWithBadge(tb);
     }
 
@@ -150,9 +150,9 @@ public sealed class WidgetView : Border
     private UIElement BuildWorkspaces()
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        row.Children.Add(Arrow("", -1));
+        row.Children.Add(Arrow("‹", -1));   // ‹
         row.Children.Add(IconPath("workspaces", Accent, 14));
-        row.Children.Add(Arrow("", +1));
+        row.Children.Add(Arrow("›", +1));   // ›
         return WrapWithBadge(row);
     }
 
@@ -163,7 +163,7 @@ public sealed class WidgetView : Border
         row.Children.Add(_loadDot);
         _loadText = new TextBlock { FontSize = 12.5, FontWeight = FontWeights.SemiBold, Foreground = Foreground, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(7, 0, 1, 0) };
         row.Children.Add(_loadText);
-        var caret = new TextBlock { Text = "", FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 8, Opacity = 0.6, Foreground = Foreground, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 1, 0, 0) };
+        var caret = new TextBlock { Text = "▾", FontSize = 9, Opacity = 0.6, Foreground = Foreground, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 1, 0, 0) };
         row.Children.Add(caret);
         RefreshLoad();
         return WrapWithBadge(row);
@@ -194,12 +194,12 @@ public sealed class WidgetView : Border
         {
             var focused = windows.Count > 0 ? windows[0] : new AppWindow(IntPtr.Zero, "Desktop", "");
             _tabsHost.Children.Add(Tab(focused.Title, true, () => { _host.Settings.AppTabsCompressed = false; RefreshAppTabs(true); }));
-            _tabsHost.Children.Add(IconButton("", () => _host.ShowWindowSwitcher(this))); // expand chevron ⌄
+            _tabsHost.Children.Add(IconButton("▾", () => _host.ShowWindowSwitcher(this))); // expand to dropdown
             return;
         }
 
         // full tabs
-        _tabsHost.Children.Add(IconButton("", () => { _host.Settings.AppTabsCompressed = true; RefreshAppTabs(true); })); // collapse «
+        _tabsHost.Children.Add(IconButton("‹", () => { _host.Settings.AppTabsCompressed = true; RefreshAppTabs(true); })); // collapse
         int shown = Math.Min(6, windows.Count);
         for (int i = 0; i < shown; i++)
         {
@@ -236,7 +236,7 @@ public sealed class WidgetView : Border
             Background = Brushes.Transparent,
             Cursor = Cursors.Hand,
             VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock { Text = glyph, FontFamily = text ? new FontFamily("Segoe UI") : new FontFamily("Segoe MDL2 Assets"), FontSize = text ? 11 : 10, Foreground = Foreground, Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center }
+            Child = new TextBlock { Text = glyph, FontSize = 11, Foreground = Foreground, Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center }
         };
         b.MouseLeftButtonDown += (_, e) => { if (_host.Customizing) return; e.Handled = true; onClick(); };
         return b;
@@ -247,7 +247,7 @@ public sealed class WidgetView : Border
         var b = new Border
         {
             Padding = new Thickness(3, 0, 3, 0), Background = Brushes.Transparent, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 10, Foreground = Foreground, Opacity = 0.85 }
+            Child = new TextBlock { Text = glyph, FontSize = 13, Foreground = Foreground, Opacity = 0.85, VerticalAlignment = VerticalAlignment.Center }
         };
         b.MouseLeftButtonDown += (_, e) => { if (_host.Customizing) return; e.Handled = true; _host.SwitchWorkspace(dir); };
         return b;
@@ -259,17 +259,19 @@ public sealed class WidgetView : Border
         return new Path { Data = Icons.Get(key), Fill = brush, Stretch = Stretch.Uniform, Width = size, Height = size, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, SnapsToDevicePixels = true };
     }
 
-    // ---- remove badge ----
+    // ---- remove badge (top-right corner) ----
 
     private UIElement WrapWithBadge(UIElement content)
     {
         var grid = new Grid { VerticalAlignment = VerticalAlignment.Center };
         grid.Children.Add(content);
-        // Kept inside the bubble's top-right corner so the thin bar window never clips it.
+
+        // Sit on the bubble's top-right corner, lifted up to the bar's top edge (never above it).
+        double gap = Math.Max(0, (_host.Settings.BarHeight - Height) / 2.0);
         _removeBadge = new Border
         {
             Width = 15, Height = 15, CornerRadius = new CornerRadius(7.5), Background = Frozen(Color.FromRgb(0xFF, 0x45, 0x3A)),
-            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, -4, 0),
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -gap, -7, 0),
             Visibility = Visibility.Collapsed, Cursor = Cursors.Hand,
             Child = new TextBlock { Text = "✕", FontSize = 9, FontWeight = FontWeights.Bold, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, -1, 0, 0) }
         };
@@ -362,7 +364,7 @@ public sealed class WidgetView : Border
     private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (!_host.Customizing) return;
-        // Don't start a drag when the click is on the remove (×) badge — let it delete.
+        // Don't start a drag when the click is on the remove (x) badge — let it delete.
         if (_removeBadge != null && e.OriginalSource is DependencyObject src && IsWithin(src, _removeBadge)) return;
         _host.BeginWidgetDrag(this, e);
         e.Handled = true;

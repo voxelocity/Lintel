@@ -946,8 +946,12 @@ public partial class MainWindow : Window, IWidgetHost
         panel.Children.Add(new TextBlock { Text = "SYSTEM LOAD", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 10, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 0, 8) });
 
         var graphs = new List<(Metric m, Controls.HistoryGraph g, TextBlock v)>();
-        foreach (var key in keys)
+        for (int ki = 0; ki < keys.Length; ki++)
         {
+            var key = keys[ki];
+            if (ki > 0)
+                panel.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF)), Margin = new Thickness(0, 0, 0, 9) });
+
             var metric = _perf!.Get(key);
             var sig = Widgets.MetricStyle.For(key).Signature;
 
