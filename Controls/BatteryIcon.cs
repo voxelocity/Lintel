@@ -23,6 +23,10 @@ public sealed class BatteryIcon : FrameworkElement
     public bool Charging { get => (bool)GetValue(ChargingProperty); set => SetValue(ChargingProperty, value); }
     private double Animated { get => (double)GetValue(AnimatedProperty); set => SetValue(AnimatedProperty, value); }
 
+    /// <summary>When set, the fill ignores the load palette and uses <see cref="MonoColor"/>.</summary>
+    public bool Monochrome { get; set; }
+    public Color MonoColor { get; set; } = Colors.White;
+
     public BatteryIcon() { Width = 25; Height = 13; }
 
     private static void OnPercentChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -53,7 +57,8 @@ public sealed class BatteryIcon : FrameworkElement
         double pad = 2.0;
         double maxFill = bodyRect.Width - pad * 2;
         double fw = Math.Max(0, maxFill * pct);
-        var color = Charging ? Color.FromRgb(0x30, 0xD1, 0x58)
+        var color = Monochrome ? MonoColor
+                  : Charging ? Color.FromRgb(0x30, 0xD1, 0x58)
                   : Animated <= 10 ? Color.FromRgb(0xFF, 0x45, 0x3A)
                   : Animated <= 20 ? Color.FromRgb(0xFF, 0xD6, 0x0A)
                   : Color.FromRgb(0x30, 0xD1, 0x58);

@@ -100,6 +100,14 @@
                         <ScaleTransform x:Name="PlusScale" ScaleX="1" ScaleY="1"/>
                     </Border.RenderTransform>
                     <StackPanel Orientation="Horizontal">
+                        <!-- Theme selector -->
+                        <Button Style="{StaticResource RoundTool}" Click="ThemeButton_Click" ToolTip="Theme">
+                            <Grid Width="16" Height="16">
+                                <Ellipse Stroke="White" StrokeThickness="1.4"/>
+                                <Path Fill="White" Data="M8,1 A7,7 0 0,0 8,15 Z"/>
+                            </Grid>
+                        </Button>
+
                         <!-- Quick layout selector -->
                         <Button Style="{StaticResource RoundTool}" Click="LayoutButton_Click" ToolTip="Quick layouts">
                             <StackPanel Orientation="Horizontal">

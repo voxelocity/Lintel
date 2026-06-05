@@ -29,18 +29,26 @@ public sealed class WidgetView : Border
     private string _winSig = "";
     private Border? _removeBadge;
 
-    private static readonly Brush IdleBg = Frozen(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
-    private static readonly Brush HoverBg = Frozen(Color.FromArgb(0x28, 0xFF, 0xFF, 0xFF));
+    private readonly Brush _idleBg;
+    private readonly Brush _hoverBg;
+    private readonly bool _coloredIcons;
+    private readonly Color _fgColor;
 
     public WidgetView(IWidgetHost host, WidgetDescriptor descriptor)
     {
         _host = host;
         Descriptor = descriptor;
 
-        CornerRadius = new CornerRadius(host.Settings.WidgetCornerRadius);
+        var theme = Themes.For(host.Settings.Theme, host.Settings.WidgetCornerRadius);
+        _idleBg = Frozen(theme.BubbleIdle);
+        _hoverBg = Frozen(theme.BubbleHover);
+        _coloredIcons = theme.ColoredIcons;
+        _fgColor = ParseColor(host.Settings.ForegroundColor, Colors.White);
+
+        CornerRadius = new CornerRadius(theme.CornerRadius);
         Height = Math.Max(22, host.Settings.BarHeight - 8);   // uniform bubble height
-        Padding = new Thickness(8, 0, 8, 0);
-        Background = IdleBg;
+        Padding = theme.Padding;
+        Background = _idleBg;
         SnapsToDevicePixels = true;
         VerticalAlignment = VerticalAlignment.Center;
         Cursor = Cursors.Arrow;
@@ -85,7 +93,7 @@ public sealed class WidgetView : Border
 
         if (Key == "battery")
         {
-            var bat = new BatteryIcon { VerticalAlignment = VerticalAlignment.Center };
+            var bat = new BatteryIcon { VerticalAlignment = VerticalAlignment.Center, Monochrome = !_coloredIcons, MonoColor = _fgColor };
             bat.SetBinding(BatteryIcon.PercentProperty, new Binding(nameof(Metric.Percent)) { Source = _metric });
             _metric.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Metric.Text)) bat.Charging = _metric.Text.Contains('⚡'); };
             bat.Charging = _metric.Text.Contains('⚡');
@@ -93,7 +101,7 @@ public sealed class WidgetView : Border
         }
         else
         {
-            row.Children.Add(IconPath(Key, sig, 17));
+            row.Children.Add(IconPath(Key, IconColor(sig), 17));
         }
 
         var value = new TextBlock
@@ -140,7 +148,7 @@ public sealed class WidgetView : Border
     private UIElement BuildNote()
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        row.Children.Add(IconPath("note", Accent, 15));
+        row.Children.Add(IconPath("note", IconColor(Accent), 15));
         _dynamicText = new TextBlock { FontSize = 12.5, Foreground = Foreground, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0), MaxWidth = 130, TextTrimming = TextTrimming.CharacterEllipsis };
         RefreshNote();
         row.Children.Add(_dynamicText);
@@ -151,7 +159,7 @@ public sealed class WidgetView : Border
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         row.Children.Add(Arrow("‹", -1));   // ‹
-        row.Children.Add(IconPath("workspaces", Accent, 14));
+        row.Children.Add(IconPath("workspaces", IconColor(Accent), 14));
         row.Children.Add(Arrow("›", +1));   // ›
         return WrapWithBadge(row);
     }
@@ -348,16 +356,20 @@ public sealed class WidgetView : Border
 
     // ---- interaction ----
 
+    private Color IconColor(Color preferred) => _coloredIcons ? preferred : _fgColor;
+
+    public void ResetBackground() => Background = _idleBg;
+
     private void OnMouseEnter(object sender, MouseEventArgs e)
     {
-        Background = HoverBg;
+        Background = _hoverBg;
         if (Descriptor.Kind == WidgetKind.Gauge && _metric != null && !_host.Customizing)
             _host.ShowGraph(this, _metric);
     }
 
     private void OnMouseLeave(object sender, MouseEventArgs e)
     {
-        Background = IdleBg;
+        Background = _idleBg;
         if (Descriptor.Kind == WidgetKind.Gauge) _host.HideGraph(this);
     }
 

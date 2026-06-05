@@ -177,6 +177,9 @@ public partial class MainWindow : Window, IWidgetHost
         PanelRight.Children.Clear();
         _allWidgets.Clear();
 
+        double spacing = Themes.For(_settings.Theme, _settings.WidgetCornerRadius).Spacing;
+        PanelLeft.Spacing = PanelCenter.Spacing = PanelRight.Spacing = spacing;
+
         AddZone(PanelLeft, _settings.LeftWidgets);
         AddZone(PanelCenter, _settings.CenterWidgets);
         AddZone(PanelRight, _settings.RightWidgets);
@@ -461,7 +464,7 @@ public partial class MainWindow : Window, IWidgetHost
         {
             CloseGraph();
             PlusPopup.PlacementTarget = BarGrid;
-            PlusPopup.HorizontalOffset = (BarGrid.ActualWidth / 2.0) - 90; // centre the pill under the bar
+            PlusPopup.HorizontalOffset = (BarGrid.ActualWidth / 2.0) - 110; // centre the pill under the bar
             PlusPopup.IsOpen = true;
             PopScale(PlusScale);
         }
@@ -603,7 +606,7 @@ public partial class MainWindow : Window, IWidgetHost
         _drag.RenderTransform = null;
         _drag.Effect = null;
         _drag.Opacity = 1;
-        _drag.Background = new SolidColorBrush(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
+        _drag.ResetBackground();
 
         if (idx < 0 || idx > panel.Children.Count) idx = panel.Children.Count;
         panel.Children.Insert(idx, _drag);
@@ -846,6 +849,30 @@ public partial class MainWindow : Window, IWidgetHost
         _settings.RightWidgets = p.R.ToList();
         _settings.Save();
         RebuildWidgets();
+    }
+
+    // ---- themes ----
+
+    private void ThemeButton_Click(object sender, RoutedEventArgs e) => ShowThemeMenu((UIElement)sender);
+
+    private void ShowThemeMenu(UIElement target)
+    {
+        var rows = new List<MenuRow>();
+        foreach (LintelTheme t in Enum.GetValues<LintelTheme>())
+        {
+            var captured = t;
+            rows.Add(new MenuRow(Themes.DisplayName(t), () => ChangeTheme(captured), Checked: _settings.Theme == t));
+        }
+        double off = target.TranslatePoint(new Point(0, 0), BarRoot).X - 20;
+        off = Math.Clamp(off, 8, Math.Max(8, BarRoot.ActualWidth - 200));
+        OpenOverlay(BuildMenuCard(rows, 190), BarRoot, off);
+    }
+
+    public void ChangeTheme(LintelTheme theme)
+    {
+        _settings.Theme = theme;
+        _settings.Save();
+        ApplySettings();
     }
 
     // ---- about ----

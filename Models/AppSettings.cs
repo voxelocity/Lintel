@@ -4,6 +4,14 @@ using System.Text.Json.Serialization;
 
 namespace Lintel.Models;
 
+public enum LintelTheme
+{
+    /// <summary>Default: each widget on a rounded, filled bubble with colour-coded icons.</summary>
+    Squircles,
+    /// <summary>Flat PowerToys-style bar: no bubbles, monochrome icons, tighter spacing.</summary>
+    Power
+}
+
 public enum VisibilityMode
 {
     /// <summary>Bar is always visible and reserves desktop space (like the macOS menu bar).</summary>
@@ -83,6 +91,9 @@ public sealed class AppSettings
 
     /// <summary>App Tabs widget: show only the focused window (collapsed) vs all tabs.</summary>
     public bool AppTabsCompressed { get; set; } = false;
+
+    /// <summary>Visual theme for the widgets.</summary>
+    public LintelTheme Theme { get; set; } = LintelTheme.Squircles;
 
     // ----------------------------------------------------------------------
 

@@ -17,6 +17,7 @@ public partial class SettingsPanel : UserControl
 
     private readonly AppSettings _settings;
     private int _selMode;
+    private int _selTheme;
 
     public double CurrentWidth { get; private set; } = QuickWidth;
 
@@ -44,7 +45,9 @@ public partial class SettingsPanel : UserControl
     private void LoadFromSettings()
     {
         _selMode = (int)_settings.Mode;
+        _selTheme = (int)_settings.Theme;
         UpdateModeButtons();
+        UpdateThemeButtons();
 
         // quick
         QBarHeight.Text = _settings.BarHeight.ToString(CultureInfo.InvariantCulture);
@@ -77,6 +80,7 @@ public partial class SettingsPanel : UserControl
     private void WriteAdvanced()
     {
         _settings.Mode = (VisibilityMode)_selMode;
+        _settings.Theme = (LintelTheme)_selTheme;
         _settings.RevealHoldMs = ParseI(RevealHoldBox.Text, _settings.RevealHoldMs);
         _settings.HideDelayMs = ParseI(HideDelayBox.Text, _settings.HideDelayMs);
         _settings.TriggerZonePx = ParseI(TriggerZoneBox.Text, _settings.TriggerZonePx);
@@ -126,6 +130,22 @@ public partial class SettingsPanel : UserControl
             adv[i].Foreground = sel ? Brushes.White : dim;
         }
         ModeHint.Text = ModeHints[Math.Clamp(_selMode, 0, 2)];
+    }
+
+    private void Theme_Click(object sender, RoutedEventArgs e)
+    {
+        _selTheme = int.Parse((string)((Button)sender).Tag);
+        UpdateThemeButtons();
+    }
+
+    private void UpdateThemeButtons()
+    {
+        var on = new SolidColorBrush(Color.FromRgb(0x0A, 0x84, 0xFF));
+        var dim = new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xD5));
+        ThemeSquircles.Background = _selTheme == 0 ? on : Brushes.Transparent;
+        ThemePower.Background = _selTheme == 1 ? on : Brushes.Transparent;
+        ThemeSquircles.Foreground = _selTheme == 0 ? Brushes.White : dim;
+        ThemePower.Foreground = _selTheme == 1 ? Brushes.White : dim;
     }
 
     // ---- view switching ----
