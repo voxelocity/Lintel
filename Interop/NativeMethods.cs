@@ -87,6 +87,32 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern uint GetDpiForWindow(IntPtr hWnd);
 
+    // ---- Acrylic blur-behind (DWM composition) ----
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ACCENT_POLICY
+    {
+        public int AccentState;
+        public int AccentFlags;
+        public uint GradientColor; // 0xAABBGGRR
+        public int AnimationId;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WINCOMPATTRDATA
+    {
+        public int Attribute;
+        public IntPtr Data;
+        public int SizeOfData;
+    }
+
+    public const int ACCENT_DISABLED = 0;
+    public const int ACCENT_ENABLE_ACRYLICBLURBEHIND = 4;
+    public const int WCA_ACCENT_POLICY = 19;
+
+    [DllImport("user32.dll")]
+    public static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref WINCOMPATTRDATA data);
+
     // ---- Foreground / obstruction queries ----
 
     [DllImport("user32.dll")]

@@ -31,7 +31,7 @@ public sealed class WidgetView : Border
 
     private readonly Brush _idleBg;
     private readonly Brush _hoverBg;
-    private readonly bool _coloredIcons;
+    private readonly double _iconSat;
     private readonly Color _fgColor;
 
     public WidgetView(IWidgetHost host, WidgetDescriptor descriptor)
@@ -42,7 +42,7 @@ public sealed class WidgetView : Border
         var theme = Themes.For(host.Settings.Theme, host.Settings.WidgetCornerRadius);
         _idleBg = Frozen(theme.BubbleIdle);
         _hoverBg = Frozen(theme.BubbleHover);
-        _coloredIcons = theme.ColoredIcons;
+        _iconSat = theme.IconSaturation;
         _fgColor = ParseColor(host.Settings.ForegroundColor, Colors.White);
 
         CornerRadius = new CornerRadius(theme.CornerRadius);
@@ -93,7 +93,7 @@ public sealed class WidgetView : Border
 
         if (Key == "battery")
         {
-            var bat = new BatteryIcon { VerticalAlignment = VerticalAlignment.Center, Monochrome = !_coloredIcons, MonoColor = _fgColor };
+            var bat = new BatteryIcon { VerticalAlignment = VerticalAlignment.Center, Saturation = _iconSat };
             bat.SetBinding(BatteryIcon.PercentProperty, new Binding(nameof(Metric.Percent)) { Source = _metric });
             _metric.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Metric.Text)) bat.Charging = _metric.Text.Contains('⚡'); };
             bat.Charging = _metric.Text.Contains('⚡');
@@ -104,10 +104,13 @@ public sealed class WidgetView : Border
             row.Children.Add(IconPath(Key, IconColor(sig), 17));
         }
 
+        // Fixed value width so the bubble never resizes as the number changes.
+        double valW = Key switch { "ram" => 86, "net" => 68, _ => 36 };
         var value = new TextBlock
         {
             FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = Foreground,
-            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 1, 0)
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 1, 0),
+            Width = valW, TextAlignment = TextAlignment.Left
         };
         value.SetBinding(TextBlock.TextProperty, new Binding(nameof(Metric.Text)) { Source = _metric });
         row.Children.Add(value);
@@ -356,7 +359,7 @@ public sealed class WidgetView : Border
 
     // ---- interaction ----
 
-    private Color IconColor(Color preferred) => _coloredIcons ? preferred : _fgColor;
+    private Color IconColor(Color preferred) => _iconSat >= 0.999 ? preferred : ColorUtil.Desaturate(preferred, _iconSat);
 
     public void ResetBackground() => Background = _idleBg;
 

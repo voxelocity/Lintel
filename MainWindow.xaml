@@ -48,12 +48,17 @@
                 <TranslateTransform x:Name="SlideTransform" Y="0"/>
             </Border.RenderTransform>
 
-            <Grid x:Name="BarGrid" Margin="8,0">
-                <c:AnimatedBarPanel x:Name="PanelLeft"   HorizontalAlignment="Left"   VerticalAlignment="Stretch"/>
-                <c:AnimatedBarPanel x:Name="PanelCenter" HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
-                <c:AnimatedBarPanel x:Name="PanelRight"  HorizontalAlignment="Right"  VerticalAlignment="Stretch"/>
-                <!-- Holds the lifted widget while dragging -->
-                <Canvas x:Name="DragLayer" IsHitTestVisible="False"/>
+            <Grid>
+                <Grid x:Name="BarGrid" Margin="8,0">
+                    <c:AnimatedBarPanel x:Name="PanelLeft"   HorizontalAlignment="Left"   VerticalAlignment="Stretch"/>
+                    <c:AnimatedBarPanel x:Name="PanelCenter" HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
+                    <c:AnimatedBarPanel x:Name="PanelRight"  HorizontalAlignment="Right"  VerticalAlignment="Stretch"/>
+                    <!-- Holds the lifted widget while dragging -->
+                    <Canvas x:Name="DragLayer" IsHitTestVisible="False"/>
+                </Grid>
+                <!-- Subtle bottom highlight (Power theme) -->
+                <Border x:Name="BottomLine" Height="1" VerticalAlignment="Bottom"
+                        Background="#24FFFFFF" Visibility="Collapsed" IsHitTestVisible="False"/>
             </Grid>
         </Border>
 

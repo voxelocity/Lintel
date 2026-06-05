@@ -122,12 +122,47 @@ public partial class MainWindow : Window, IWidgetHost
 
     // =========================================================== settings/layout
 
+    private bool _backdrop;
+    private Color _backdropTint;
+
     public void ApplySettings()
     {
-        BarBackground = BrushFrom(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E));
+        var theme = Themes.For(_settings.Theme, _settings.WidgetCornerRadius);
+        _backdrop = theme.Acrylic;
+        _backdropTint = theme.AcrylicTint;
+
+        // With acrylic the bar background is near-transparent (still hit-testable) so the
+        // blur shows; otherwise it's the user's solid translucent colour.
+        BarBackground = _backdrop
+            ? new SolidColorBrush(Color.FromArgb(0x01, 0, 0, 0))
+            : BrushFrom(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E));
         Foreground = BrushFrom(_settings.ForegroundColor, Color.FromArgb(0xFF, 0xF2, 0xF2, 0xF7));
+
+        BottomLine.Visibility = theme.BottomHighlight ? Visibility.Visible : Visibility.Collapsed;
+
         RebuildWidgets();
         ApplyLayout();
+        ApplyBackdrop(_shown && _backdrop);
+    }
+
+    private void ApplyBackdrop(bool enabled)
+    {
+        if (_hwnd == IntPtr.Zero) return;
+        uint abgr = (uint)((_backdropTint.A << 24) | (_backdropTint.B << 16) | (_backdropTint.G << 8) | _backdropTint.R);
+        var accent = new ACCENT_POLICY
+        {
+            AccentState = enabled ? ACCENT_ENABLE_ACRYLICBLURBEHIND : ACCENT_DISABLED,
+            GradientColor = abgr
+        };
+        int size = System.Runtime.InteropServices.Marshal.SizeOf(accent);
+        IntPtr ptr = System.Runtime.InteropServices.Marshal.AllocHGlobal(size);
+        try
+        {
+            System.Runtime.InteropServices.Marshal.StructureToPtr(accent, ptr, false);
+            var data = new WINCOMPATTRDATA { Attribute = WCA_ACCENT_POLICY, Data = ptr, SizeOfData = size };
+            SetWindowCompositionAttribute(_hwnd, ref data);
+        }
+        finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr); }
     }
 
     private void ApplyLayout()
@@ -338,6 +373,7 @@ public partial class MainWindow : Window, IWidgetHost
     {
         _shown = show;
         SetClickThrough(!show);
+        if (_backdrop) ApplyBackdrop(show);
 
         double target = show ? 0 : -_settings.BarHeight;
         int ms = animate ? _settings.AnimationMs : 0;
