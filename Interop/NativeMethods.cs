@@ -113,6 +113,36 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+    [DllImport("user32.dll")]
+    public static extern int GetWindowTextLength(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    public const int SW_RESTORE = 9;
+
+    public const int GWL_STYLE = -16;
+    public const long WS_VISIBLE = 0x10000000L;
+    public const int GWL_EXSTYLE_APPWINDOW = 0x00040000; // WS_EX_APPWINDOW
+
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    // Keyboard synthesis for virtual-desktop switching (Ctrl+Win+Arrow)
+    [DllImport("user32.dll")]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    public const byte VK_CONTROL = 0x11;
+    public const byte VK_LWIN = 0x5B;
+    public const byte VK_LEFT = 0x25;
+    public const byte VK_RIGHT = 0x27;
+    public const uint KEYEVENTF_KEYUP = 0x0002;
+
     // ---- Monitors ----
 
     public const uint MONITOR_DEFAULTTOPRIMARY = 0x00000001;

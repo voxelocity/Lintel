@@ -75,8 +75,14 @@ public sealed class AppSettings
     public List<string> CenterWidgets { get; set; } = new() { "cpu", "ram", "gpu" };
     public List<string> RightWidgets { get; set; } = new() { "mode", "date", "clock", "settings" };
 
-    /// <summary>Corner radius of the floating widget clusters (Dynamic Island feel).</summary>
-    public double WidgetCornerRadius { get; set; } = 13;
+    /// <summary>Corner radius of the widget bubbles (lower = more squarish).</summary>
+    public double WidgetCornerRadius { get; set; } = 8;
+
+    /// <summary>Persisted text for the Quick Note widget.</summary>
+    public string NoteText { get; set; } = "";
+
+    /// <summary>App Tabs widget: show only the focused window (collapsed) vs all tabs.</summary>
+    public bool AppTabsCompressed { get; set; } = false;
 
     // ----------------------------------------------------------------------
 

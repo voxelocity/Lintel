@@ -6,15 +6,19 @@ A macOS / Linux-style **top bar for Windows 11** with a fluid, Dynamic Island-st
 
 ## Widgets
 
-The bar is built from widgets arranged into three zones — **left**, **center**, **right**:
+The bar is built from widgets arranged into three zones — **left**, **center**, **right**. Every widget sits on a uniform, squarish bubble:
 
 - **Active App** — name of the foreground application
 - **Clock** / **Date**
 - **Mode** — current visibility mode; click to cycle
-- **Settings** — gear, opens the settings window
-- **Performance gauges** — **CPU**, **Memory**, **GPU**, **Disk**, **Network**, **Battery**, each a colour-coded ring (green → amber → red) that animates as load changes
+- **Settings** — gear, opens the settings panel
+- **Performance gauges** — **CPU**, **Memory**, **GPU**, **Disk**, **Network**, **Battery**, each with its own **distinct icon** in a signature colour. The **Battery** fills up like macOS and turns amber/red when low.
+- **System Load** — one compact widget that summarises overall usage as **Low / Medium / High** (colour-coded). Click it to drop down a panel with **live mini-graphs for every resource**.
+- **App Tabs** — your open windows shown as taskbar-style tabs (focused one highlighted, click to switch). A compact mode shows just the focused window with an expand chevron that drops a vertical switcher.
+- **Quick Note** — a persistent scratch note; click to edit inline.
+- **Workspaces** — ‹ › arrows to switch virtual desktops.
 
-**Hover any performance gauge** and a card grows out from under it showing a **colour-coded history graph** with live min / avg / max.
+**Hover any performance gauge** and a card grows out from under it with a **history graph whose style matches the metric** (smooth area for CPU/RAM/GPU, bars for Disk/Network, a line for Battery), live min / avg / max, **and the top processes using that resource**.
 
 ### Customize mode
 

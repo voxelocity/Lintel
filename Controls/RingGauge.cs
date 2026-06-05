@@ -19,6 +19,12 @@ public sealed class RingGauge : FrameworkElement
         DependencyProperty.Register(nameof(Thickness), typeof(double), typeof(RingGauge),
             new FrameworkPropertyMetadata(3.0, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty TrackColorProperty =
+        DependencyProperty.Register(nameof(TrackColor), typeof(Color), typeof(RingGauge),
+            new FrameworkPropertyMetadata(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF), FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public Color TrackColor { get => (Color)GetValue(TrackColorProperty); set => SetValue(TrackColorProperty, value); }
+
     // Internal animated value actually drawn.
     private static readonly DependencyProperty AnimatedProperty =
         DependencyProperty.Register(nameof(Animated), typeof(double), typeof(RingGauge),
@@ -71,8 +77,8 @@ public sealed class RingGauge : FrameworkElement
         var center = new Point(ActualWidth / 2.0, ActualHeight / 2.0);
         double value = Math.Clamp(Animated, 0, 100);
 
-        // Track
-        var track = new Pen(new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)), th);
+        // Track (tinted per metric)
+        var track = new Pen(new SolidColorBrush(TrackColor), th);
         dc.DrawEllipse(null, track, center, r, r);
 
         if (value <= 0.01) return;

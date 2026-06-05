@@ -79,6 +79,9 @@
                         <TextBlock x:Name="GraphAvg"  DockPanel.Dock="Left"  Foreground="#FF8E8E93" FontSize="10.5" Margin="14,0,0,0"/>
                         <TextBlock x:Name="GraphMax"  DockPanel.Dock="Right" Foreground="#FF8E8E93" FontSize="10.5"/>
                     </DockPanel>
+                    <Border Height="1" Background="#1AFFFFFF" Margin="0,10,0,8"/>
+                    <TextBlock x:Name="GraphProcTitle" Text="TOP PROCESSES" Foreground="#FF8E8E93" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <StackPanel x:Name="GraphProcs"/>
                 </StackPanel>
             </Border>
         </Popup>

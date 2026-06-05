@@ -3,23 +3,32 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using Lintel.Models;
 
 namespace Lintel;
 
-/// <summary>Themed settings card, hosted in an in-bar popup (no separate OS window).</summary>
+/// <summary>Themed settings card hosted in an in-bar popup. Opens as a compact Quick view
+/// and dynamically scales up into a landscape Advanced view.</summary>
 public partial class SettingsPanel : UserControl
 {
+    private const double QuickWidth = 384;
+    private const double AdvancedWidth = 760;
+
     private readonly AppSettings _settings;
     private int _selMode;
 
+    public double CurrentWidth { get; private set; } = QuickWidth;
+
     public event Action? SettingsApplied;
     public event Action? CloseRequested;
+    public event Action<double>? WidthChanged;
 
     public SettingsPanel(AppSettings settings)
     {
         _settings = settings;
         InitializeComponent();
+        Root.Width = QuickWidth;
         LoadFromSettings();
     }
 
@@ -30,28 +39,73 @@ public partial class SettingsPanel : UserControl
         "Floats on top, hides under fullscreen or overlapping windows."
     };
 
+    // ---- load / write ----
+
     private void LoadFromSettings()
     {
         _selMode = (int)_settings.Mode;
         UpdateModeButtons();
 
+        // quick
+        QBarHeight.Text = _settings.BarHeight.ToString(CultureInfo.InvariantCulture);
+        QClock24.IsChecked = _settings.Use24HourClock;
+        QStartup.IsChecked = _settings.LaunchAtStartup;
+
+        // advanced
         RevealHoldBox.Text = _settings.RevealHoldMs.ToString();
         HideDelayBox.Text = _settings.HideDelayMs.ToString();
         TriggerZoneBox.Text = _settings.TriggerZonePx.ToString();
         DynamicHideBox.Text = _settings.DynamicHideDelayMs.ToString();
-
         BarHeightBox.Text = _settings.BarHeight.ToString(CultureInfo.InvariantCulture);
         BgColorBox.Text = _settings.BackgroundColor;
         FgColorBox.Text = _settings.ForegroundColor;
         AccentColorBox.Text = _settings.AccentColor;
         AnimationBox.Text = _settings.AnimationMs.ToString();
-
         Clock24Chk.IsChecked = _settings.Use24HourClock;
         MonitorBox.Text = _settings.MonitorIndex.ToString();
         StartupChk.IsChecked = _settings.LaunchAtStartup;
     }
 
-    private void Mode_Click(object sender, RoutedEventArgs e)
+    private void WriteQuick()
+    {
+        _settings.Mode = (VisibilityMode)_selMode;
+        _settings.BarHeight = ParseD(QBarHeight.Text, _settings.BarHeight);
+        _settings.Use24HourClock = QClock24.IsChecked == true;
+        _settings.LaunchAtStartup = QStartup.IsChecked == true;
+    }
+
+    private void WriteAdvanced()
+    {
+        _settings.Mode = (VisibilityMode)_selMode;
+        _settings.RevealHoldMs = ParseI(RevealHoldBox.Text, _settings.RevealHoldMs);
+        _settings.HideDelayMs = ParseI(HideDelayBox.Text, _settings.HideDelayMs);
+        _settings.TriggerZonePx = ParseI(TriggerZoneBox.Text, _settings.TriggerZonePx);
+        _settings.DynamicHideDelayMs = ParseI(DynamicHideBox.Text, _settings.DynamicHideDelayMs);
+        _settings.BarHeight = ParseD(BarHeightBox.Text, _settings.BarHeight);
+        _settings.BackgroundColor = NonEmpty(BgColorBox.Text, _settings.BackgroundColor);
+        _settings.ForegroundColor = NonEmpty(FgColorBox.Text, _settings.ForegroundColor);
+        _settings.AccentColor = NonEmpty(AccentColorBox.Text, _settings.AccentColor);
+        _settings.AnimationMs = ParseI(AnimationBox.Text, _settings.AnimationMs);
+        _settings.Use24HourClock = Clock24Chk.IsChecked == true;
+        _settings.MonitorIndex = ParseI(MonitorBox.Text, _settings.MonitorIndex);
+        _settings.LaunchAtStartup = StartupChk.IsChecked == true;
+    }
+
+    private bool AdvancedVisible => AdvancedView.Visibility == Visibility.Visible;
+
+    private void WriteActive()
+    {
+        if (AdvancedVisible) WriteAdvanced(); else WriteQuick();
+        _settings.Clamped();
+        LoadFromSettings();
+    }
+
+    // ---- mode segmented ----
+
+    private void QMode_Click(object sender, RoutedEventArgs e) => SetMode(sender);
+    private void Mode_Click(object sender, RoutedEventArgs e) => SetMode(sender);
+
+    private void SetMode(object sender)
     {
         _selMode = int.Parse((string)((Button)sender).Tag);
         UpdateModeButtons();
@@ -60,48 +114,71 @@ public partial class SettingsPanel : UserControl
     private void UpdateModeButtons()
     {
         var on = new SolidColorBrush(Color.FromRgb(0x0A, 0x84, 0xFF));
-        var off = Brushes.Transparent;
-        ModeAlways.Background = _selMode == 0 ? on : off;
-        ModeAuto.Background = _selMode == 1 ? on : off;
-        ModeDynamic.Background = _selMode == 2 ? on : off;
-        ModeAlways.Foreground = ModeAuto.Foreground = ModeDynamic.Foreground =
-            new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xD5));
-        (_selMode switch { 0 => ModeAlways, 1 => ModeAuto, _ => ModeDynamic }).Foreground = Brushes.White;
+        var dim = new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xD5));
+        Button[] quick = { QModeAlways, QModeAuto, QModeDynamic };
+        Button[] adv = { ModeAlways, ModeAuto, ModeDynamic };
+        for (int i = 0; i < 3; i++)
+        {
+            bool sel = _selMode == i;
+            quick[i].Background = sel ? on : Brushes.Transparent;
+            adv[i].Background = sel ? on : Brushes.Transparent;
+            quick[i].Foreground = sel ? Brushes.White : dim;
+            adv[i].Foreground = sel ? Brushes.White : dim;
+        }
         ModeHint.Text = ModeHints[Math.Clamp(_selMode, 0, 2)];
     }
 
-    private void WriteToSettings()
+    // ---- view switching ----
+
+    private void ShowAdvanced_Click(object sender, RoutedEventArgs e) => ExpandToAdvanced();
+
+    public void ExpandToAdvanced()
     {
-        _settings.Mode = (VisibilityMode)_selMode;
-        _settings.RevealHoldMs = ParseInt(RevealHoldBox.Text, _settings.RevealHoldMs);
-        _settings.HideDelayMs = ParseInt(HideDelayBox.Text, _settings.HideDelayMs);
-        _settings.TriggerZonePx = ParseInt(TriggerZoneBox.Text, _settings.TriggerZonePx);
-        _settings.DynamicHideDelayMs = ParseInt(DynamicHideBox.Text, _settings.DynamicHideDelayMs);
-
-        _settings.BarHeight = ParseDouble(BarHeightBox.Text, _settings.BarHeight);
-        _settings.BackgroundColor = NonEmpty(BgColorBox.Text, _settings.BackgroundColor);
-        _settings.ForegroundColor = NonEmpty(FgColorBox.Text, _settings.ForegroundColor);
-        _settings.AccentColor = NonEmpty(AccentColorBox.Text, _settings.AccentColor);
-        _settings.AnimationMs = ParseInt(AnimationBox.Text, _settings.AnimationMs);
-
-        _settings.Use24HourClock = Clock24Chk.IsChecked == true;
-        _settings.MonitorIndex = ParseInt(MonitorBox.Text, _settings.MonitorIndex);
-        _settings.LaunchAtStartup = StartupChk.IsChecked == true;
-
-        _settings.Clamped();
+        WriteQuick();
         LoadFromSettings();
+        QuickView.Visibility = Visibility.Collapsed;
+        AdvancedView.Visibility = Visibility.Visible;
+        SetWidth(AdvancedWidth);
+        AnimateExpand(0.94);
     }
+
+    private void ShowQuick_Click(object sender, RoutedEventArgs e)
+    {
+        WriteAdvanced();
+        LoadFromSettings();
+        AdvancedView.Visibility = Visibility.Collapsed;
+        QuickView.Visibility = Visibility.Visible;
+        SetWidth(QuickWidth);
+        AnimateExpand(1.04);
+    }
+
+    private void SetWidth(double w)
+    {
+        CurrentWidth = w;
+        Root.Width = w;
+        WidthChanged?.Invoke(w);
+    }
+
+    private void AnimateExpand(double from)
+    {
+        var a = new DoubleAnimation(from, 1, TimeSpan.FromMilliseconds(190)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+        RootScale.BeginAnimation(ScaleTransform.ScaleXProperty, a);
+        RootScale.BeginAnimation(ScaleTransform.ScaleYProperty, a.Clone());
+        Root.BeginAnimation(OpacityProperty, new DoubleAnimation(0.4, 1, TimeSpan.FromMilliseconds(150)));
+    }
+
+    // ---- buttons ----
 
     private void Apply_Click(object sender, RoutedEventArgs e)
     {
-        WriteToSettings();
+        WriteActive();
         _settings.Save();
         SettingsApplied?.Invoke();
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        WriteToSettings();
+        WriteActive();
         _settings.Save();
         SettingsApplied?.Invoke();
         CloseRequested?.Invoke();
@@ -109,9 +186,7 @@ public partial class SettingsPanel : UserControl
 
     private void Close_Click(object sender, MouseButtonEventArgs e) => CloseRequested?.Invoke();
 
-    private static int ParseInt(string t, int f) =>
-        int.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : f;
-    private static double ParseDouble(string t, double f) =>
-        double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : f;
+    private static int ParseI(string t, int f) => int.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : f;
+    private static double ParseD(string t, double f) => double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : f;
     private static string NonEmpty(string t, string f) => string.IsNullOrWhiteSpace(t) ? f : t.Trim();
 }

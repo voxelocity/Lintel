@@ -23,4 +23,13 @@ public interface IWidgetHost
     void HideGraph(WidgetView view);
 
     void BeginWidgetDrag(WidgetView view, MouseButtonEventArgs e);
+
+    // Interactive widgets
+    void ShowNote(WidgetView view);
+    void ShowWindowSwitcher(WidgetView view);
+    int OpenWindowCount();
+    void SwitchWorkspace(int direction);
+
+    /// <summary>Drop-down with every resource graph (for the compact System Load widget).</summary>
+    void ShowResourcePanel(WidgetView view);
 }

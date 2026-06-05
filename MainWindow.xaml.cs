@@ -197,7 +197,10 @@ public partial class MainWindow : Window, IWidgetHost
 
     private void UpdatePerfActive()
     {
-        var keys = _allWidgets.Where(w => w.Descriptor.Kind == WidgetKind.Gauge).Select(w => w.Key);
+        var keys = _allWidgets.Where(w => w.Descriptor.Kind == WidgetKind.Gauge).Select(w => w.Key).ToHashSet();
+        // The System Load widget (and its drop-down) needs the core metrics sampled too.
+        if (_allWidgets.Any(w => w.Descriptor.Kind == WidgetKind.Load))
+            foreach (var k in new[] { "cpu", "ram", "gpu", "disk", "net" }) keys.Add(k);
         _perf?.SetActive(keys);
     }
 
@@ -367,11 +370,50 @@ public partial class MainWindow : Window, IWidgetHost
         _graphOwner = view;
         _graphMetric = metric;
         GraphTitle.Text = metric.Name.ToUpperInvariant();
+        GraphView.Kind = Widgets.MetricStyle.For(metric.Key).Graph;
         GraphPopup.PlacementTarget = view;
         UpdateGraph(metric);
+        LoadTopProcesses(metric.Key);
 
         GraphPopup.IsOpen = true;
         GrowFromTop(GraphScale, GraphCard);
+    }
+
+    private void LoadTopProcesses(string key)
+    {
+        GraphProcTitle.Text = key == "ram" ? "TOP MEMORY USERS"
+            : key == "battery" ? "TOP POWER USERS"
+            : key == "net" ? "TOP I/O USERS"
+            : $"TOP {WidgetCatalog.Find(key)?.Name.ToUpperInvariant()} USERS";
+        GraphProcs.Children.Clear();
+        GraphProcs.Children.Add(new TextBlock { Text = "…", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 11.5 });
+
+        var owner = _graphOwner;
+        _ = ProcessUsage.TopAsync(key, 4).ContinueWith(t =>
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!GraphPopup.IsOpen || !ReferenceEquals(owner, _graphOwner)) return;
+                GraphProcs.Children.Clear();
+                var list = t.IsCompletedSuccessfully ? t.Result : new List<ProcUsage>();
+                if (list.Count == 0)
+                {
+                    GraphProcs.Children.Add(new TextBlock { Text = "No data", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 11.5 });
+                    return;
+                }
+                foreach (var p in list)
+                {
+                    var dp = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 1.5, 0, 1.5) };
+                    var name = new TextBlock { Text = p.Name, Foreground = Brushes.White, FontSize = 12 };
+                    var val = new TextBlock { Text = p.Value, Foreground = new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB5)), FontSize = 12, FontWeight = FontWeights.SemiBold };
+                    DockPanel.SetDock(name, Dock.Left);
+                    DockPanel.SetDock(val, Dock.Right);
+                    dp.Children.Add(val);
+                    dp.Children.Add(name);
+                    GraphProcs.Children.Add(dp);
+                }
+            }));
+        });
     }
 
     public void HideGraph(WidgetView view)
@@ -574,7 +616,9 @@ public partial class MainWindow : Window, IWidgetHost
         ScrimPopup.IsOpen = true;
     }
 
-    private void OpenOverlay(UIElement content, UIElement target, double horizontalOffset)
+    private bool _overlayFocusable;
+
+    private void OpenOverlay(UIElement content, UIElement target, double horizontalOffset, bool focusable = false)
     {
         OverlayHost.Content = content;
         OverlayPopup.PlacementTarget = target;
@@ -583,20 +627,47 @@ public partial class MainWindow : Window, IWidgetHost
         ShowScrim();
         OverlayPopup.IsOpen = true;
         _forceOpen = true;
+
+        // Text-editing overlays (settings, note) need the window to accept keyboard focus.
+        _overlayFocusable = focusable;
+        if (focusable && _hwnd != IntPtr.Zero)
+        {
+            int ex = GetWindowLong(_hwnd, GWL_EXSTYLE);
+            SetWindowLong(_hwnd, GWL_EXSTYLE, ex & ~WS_EX_NOACTIVATE & ~WS_EX_TRANSPARENT);
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                SetForegroundWindow(_hwnd);
+                Activate();
+            }), DispatcherPriority.Input);
+        }
+
         GrowFromTop(OverlayScale, OverlayHost);
     }
 
-    private void OpenOverlayCentered(FrameworkElement content, double width)
+    private void OpenOverlayCentered(FrameworkElement content, double width, bool focusable = false)
     {
         double off = (BarRoot.ActualWidth / 2.0) - (width / 2.0);
-        OpenOverlay(content, BarRoot, off);
+        OpenOverlay(content, BarRoot, off, focusable);
     }
+
+    private void RecenterOverlay(double width) =>
+        OverlayPopup.HorizontalOffset = (BarRoot.ActualWidth / 2.0) - (width / 2.0);
+
+    private Action? _overlayClosed;
 
     private void CloseOverlay()
     {
         OverlayPopup.IsOpen = false;
         ScrimPopup.IsOpen = false;
         OverlayHost.Content = null;
+        var cb = _overlayClosed; _overlayClosed = null;
+        cb?.Invoke();
+        if (_overlayFocusable && _hwnd != IntPtr.Zero)
+        {
+            int ex = GetWindowLong(_hwnd, GWL_EXSTYLE);
+            SetWindowLong(_hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE);
+            _overlayFocusable = false;
+        }
         if (!Customizing) _forceOpen = false;
     }
 
@@ -678,7 +749,7 @@ public partial class MainWindow : Window, IWidgetHost
         double cursorX = e.GetPosition(BarRoot).X;
         var rows = new List<MenuRow>
         {
-            new("Settings…", OpenSettings),
+            new("Settings…", () => OpenSettings()),
             new(Customizing ? "Exit Customize" : "Customize Widgets", ToggleCustomize, Checked: Customizing),
             Sep(),
             new("Always On", () => ChangeMode(VisibilityMode.AlwaysOn), Checked: _settings.Mode == VisibilityMode.AlwaysOn),
@@ -742,6 +813,133 @@ public partial class MainWindow : Window, IWidgetHost
         OpenOverlayCentered(card, 336);
     }
 
+    // ---- interactive widgets: note / app tabs / workspaces ----
+
+    public void ShowNote(WidgetView view)
+    {
+        var tb = new TextBox
+        {
+            Text = _settings.NoteText,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            Width = 280, Height = 130,
+            Background = new SolidColorBrush(Color.FromRgb(0x2C, 0x2C, 0x30)),
+            Foreground = Brushes.White,
+            CaretBrush = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(8),
+            FontSize = 13,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+        tb.TextChanged += (_, _) => _settings.NoteText = tb.Text;
+
+        var panel = new StackPanel { Width = 296 };
+        panel.Children.Add(new TextBlock { Text = "QUICK NOTE", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 10, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 0, 8) });
+        panel.Children.Add(tb);
+
+        var card = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)),
+            CornerRadius = new CornerRadius(14),
+            Padding = new Thickness(12),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black },
+            Child = panel
+        };
+
+        _overlayClosed = () => { _settings.Save(); RefreshDynamicWidgets(); };
+        OpenOverlay(card, view, 0, focusable: true);
+        Dispatcher.BeginInvoke(new Action(() => { tb.Focus(); System.Windows.Input.Keyboard.Focus(tb); tb.CaretIndex = tb.Text.Length; }), DispatcherPriority.Input);
+    }
+
+    public void ShowWindowSwitcher(WidgetView view)
+    {
+        var windows = WindowList.Enumerate().Take(14).ToList();
+        var rows = new List<MenuRow>();
+        if (windows.Count == 0)
+            rows.Add(new MenuRow("No open windows", null));
+        else
+            foreach (var w in windows)
+            {
+                var handle = w.Handle;
+                string label = string.IsNullOrEmpty(w.Process) ? w.Title : $"{w.Title}";
+                rows.Add(new MenuRow(label, () => WindowList.Activate(handle)));
+            }
+        double off = view.TranslatePoint(new Point(0, 0), BarRoot).X - 10;
+        off = Math.Clamp(off, 8, Math.Max(8, BarRoot.ActualWidth - 280));
+        OpenOverlay(BuildMenuCard(rows, 270), BarRoot, off);
+    }
+
+    private int _winCount;
+    private DateTime _winCountAt;
+
+    public int OpenWindowCount()
+    {
+        if ((DateTime.UtcNow - _winCountAt).TotalMilliseconds > 1500)
+        {
+            _winCount = WindowList.Count();
+            _winCountAt = DateTime.UtcNow;
+        }
+        return _winCount;
+    }
+
+    public void SwitchWorkspace(int direction) => WindowList.SwitchDesktop(direction);
+
+    public void ShowResourcePanel(WidgetView view)
+    {
+        string[] keys = { "cpu", "ram", "gpu", "disk", "net" };
+        var panel = new StackPanel { Width = 268 };
+        panel.Children.Add(new TextBlock { Text = "SYSTEM LOAD", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 10, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 0, 8) });
+
+        var graphs = new List<(Metric m, Controls.HistoryGraph g, TextBlock v)>();
+        foreach (var key in keys)
+        {
+            var metric = _perf!.Get(key);
+            var sig = Widgets.MetricStyle.For(key).Signature;
+
+            var rowGrid = new Grid { Margin = new Thickness(0, 0, 0, 9) };
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(86) });
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var head = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            head.Children.Add(new System.Windows.Shapes.Path { Data = Widgets.Icons.Get(key), Fill = new SolidColorBrush(sig), Stretch = Stretch.Uniform, Width = 14, Height = 14, VerticalAlignment = VerticalAlignment.Center });
+            var nameVal = new StackPanel { Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            nameVal.Children.Add(new TextBlock { Text = metric.Name, Foreground = Brushes.White, FontSize = 11.5, FontWeight = FontWeights.SemiBold });
+            var valTb = new TextBlock { Text = metric.Text, Foreground = new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB5)), FontSize = 10.5 };
+            nameVal.Children.Add(valTb);
+            head.Children.Add(nameVal);
+            Grid.SetColumn(head, 0);
+            rowGrid.Children.Add(head);
+
+            var g = new Controls.HistoryGraph { Height = 34, Kind = Widgets.MetricStyle.For(key).Graph, VerticalAlignment = VerticalAlignment.Center };
+            g.SetData(metric.Snapshot());
+            Grid.SetColumn(g, 1);
+            rowGrid.Children.Add(g);
+
+            panel.Children.Add(rowGrid);
+            graphs.Add((metric, g, valTb));
+        }
+
+        var card = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)),
+            CornerRadius = new CornerRadius(14),
+            Padding = new Thickness(14, 12, 14, 8),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black },
+            Child = panel
+        };
+
+        void Updater()
+        {
+            foreach (var (m, g, v) in graphs) { g.SetData(m.Snapshot()); v.Text = m.Text; }
+        }
+        _perf!.Updated += Updater;
+        _overlayClosed = () => _perf!.Updated -= Updater;
+
+        double off = view.TranslatePoint(new Point(0, 0), BarRoot).X - 10;
+        off = Math.Clamp(off, 8, Math.Max(8, BarRoot.ActualWidth - 300));
+        OpenOverlay(card, BarRoot, off);
+    }
+
     private void CycleMode()
     {
         var next = _settings.Mode switch
@@ -763,7 +961,7 @@ public partial class MainWindow : Window, IWidgetHost
 
     // =========================================================== settings window
 
-    private void OpenSettings()
+    private void OpenSettings(bool advanced = false)
     {
         var panel = new SettingsPanel(_settings);
         panel.SettingsApplied += () =>
@@ -773,10 +971,13 @@ public partial class MainWindow : Window, IWidgetHost
             StartupManager.Apply(_settings.LaunchAtStartup);
         };
         panel.CloseRequested += CloseOverlay;
-        OpenOverlayCentered(panel, 452);
+        panel.WidthChanged += RecenterOverlay;
+        OpenOverlayCentered(panel, panel.CurrentWidth, focusable: true);
+        if (advanced) panel.ExpandToAdvanced();
     }
 
     public void OpenSettingsFromTray() => OpenSettings();
+    public void OpenSettingsAdvancedFromTray() => OpenSettings(advanced: true);
     public void ToggleCustomizeFromTray() => ToggleCustomize();
 
     // =========================================================== helpers
