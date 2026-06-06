@@ -1,8 +1,51 @@
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Win32;
 
 namespace Lintel.Services;
+
+/// <summary>Locates the installed Claude desktop app (Windows).</summary>
+public static class ClaudeApp
+{
+    public static bool Installed => ExePath != null;
+
+    /// <summary>Full path to the Claude desktop launcher, or null if not found.</summary>
+    public static string? ExePath
+    {
+        get
+        {
+            foreach (var path in Candidates())
+            {
+                try { if (File.Exists(path)) return path; } catch { /* ignore */ }
+            }
+            return null;
+        }
+    }
+
+    private static IEnumerable<string> Candidates()
+    {
+        // Registered launch path (set by the installer).
+        if (Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\App Paths\claude.exe", null, null) is string r1 && r1.Length > 0)
+            yield return r1.Trim('"');
+        if (Registry.GetValue(@"HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\App Paths\claude.exe", null, null) is string r2 && r2.Length > 0)
+            yield return r2.Trim('"');
+
+        string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        yield return Path.Combine(local, "AnthropicClaude", "claude.exe");
+        yield return Path.Combine(local, "Programs", "claude", "Claude.exe");
+        yield return Path.Combine(local, "Programs", "Claude", "Claude.exe");
+
+        // Squirrel-style versioned installs: %LOCALAPPDATA%\AnthropicClaude\app-1.2.3\claude.exe (newest first).
+        string baseDir = Path.Combine(local, "AnthropicClaude");
+        string[] versions = Array.Empty<string>();
+        if (Directory.Exists(baseDir))
+            try { versions = Directory.GetDirectories(baseDir, "app-*"); } catch { /* ignore */ }
+        Array.Sort(versions, StringComparer.OrdinalIgnoreCase);
+        for (int i = versions.Length - 1; i >= 0; i--)
+            yield return Path.Combine(versions[i], "claude.exe");
+    }
+}
 
 /// <summary>Token usage parsed from Claude Code's local transcripts (~/.claude/projects/**/*.jsonl).</summary>
 public sealed class ClaudeStats

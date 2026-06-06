@@ -1425,7 +1425,7 @@ public partial class MainWindow : Window, IWidgetHost
         var heatCaption = new TextBlock { Text = "last 17 weeks", Foreground = Sub(), FontSize = 10, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
         panel.Children.Add(heatCaption);
 
-        panel.Children.Add(OpenButton("Open claude.ai", ClaudeAccent, () => OpenUrl("https://claude.ai")));
+        panel.Children.Add(OpenButton(ClaudeApp.Installed ? "Open Claude" : "Open claude.ai", ClaudeAccent, OpenClaude));
 
         OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W);
 
@@ -1639,6 +1639,18 @@ public partial class MainWindow : Window, IWidgetHost
     {
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
         catch { /* ignore */ }
+    }
+
+    /// <summary>Launch the Claude desktop app if it's installed, otherwise open claude.ai.</summary>
+    private static void OpenClaude()
+    {
+        var exe = ClaudeApp.ExePath;
+        if (exe != null)
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true }); return; }
+            catch { /* fall through to web */ }
+        }
+        OpenUrl("https://claude.ai");
     }
 
     // ---- compact bar labels, refreshed on a slow cadence ----
