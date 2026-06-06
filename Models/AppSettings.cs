@@ -107,6 +107,12 @@ public sealed class AppSettings
     /// <summary>In Dynamic mode, hold the cursor at the top edge this long to reveal the bar over a fullscreen app.</summary>
     public int DynamicRevealHoldMs { get; set; } = 350;
 
+    /// <summary>Optional token budget for the Claude widget's rolling 5-hour window. 0 = unknown (show usage only).</summary>
+    public long ClaudeTokenLimit { get; set; } = 0;
+
+    /// <summary>Where the GitHub widget clones repositories. Empty = Desktop.</summary>
+    public string CloneTargetFolder { get; set; } = "";
+
     // ----------------------------------------------------------------------
 
     [JsonIgnore]

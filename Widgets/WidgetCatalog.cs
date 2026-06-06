@@ -1,6 +1,6 @@
 namespace Lintel.Widgets;
 
-public enum WidgetKind { Gauge, Clock, Date, ActiveApp, Mode, Settings, Note, Windows, Workspaces, Load, Media }
+public enum WidgetKind { Gauge, Clock, Date, ActiveApp, Mode, Settings, Note, Windows, Workspaces, Load, Media, Claude, GitHub }
 
 public sealed record WidgetDescriptor(string Key, string Name, WidgetKind Kind, string Category, string Glyph = "");
 
@@ -19,6 +19,9 @@ public static class WidgetCatalog
 
         new("media",      "Media",       WidgetKind.Media,      "Media"),
 
+        new("claude",     "Claude",      WidgetKind.Claude,     "Developer"),
+        new("github",     "GitHub",      WidgetKind.GitHub,     "Developer"),
+
         new("activeapp",  "Active App",  WidgetKind.ActiveApp,  "Windows"),
         new("windows",    "App Tabs",    WidgetKind.Windows,    "Windows"),
         new("workspaces", "Workspaces",  WidgetKind.Workspaces, "Windows"),
@@ -32,7 +35,7 @@ public static class WidgetCatalog
     };
 
     /// <summary>Category display order in the add menu.</summary>
-    public static readonly string[] Categories = { "System", "Media", "Windows", "Time & Date", "Lintel" };
+    public static readonly string[] Categories = { "System", "Media", "Developer", "Windows", "Time & Date", "Lintel" };
 
     public static WidgetDescriptor? Find(string key) => All.FirstOrDefault(w => w.Key == key);
 }

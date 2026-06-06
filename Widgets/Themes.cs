@@ -21,22 +21,24 @@ public sealed class ThemeDef
     public bool SeparatedZones;     // each zone is its own floating bar
     public Color ZoneBackground;    // background of each floating zone (Islands)
     public bool FluidDropdowns;     // springy Dynamic-Island-style menus
+    public bool WidgetDividers;     // thin separators drawn between widgets (Mond)
 }
 
 public static class Themes
 {
-    private static ThemeDef PowerLike(bool fluid) => new()
+    private static ThemeDef PowerLike(bool fluid, bool dividers = false) => new()
     {
         BubbleIdle = Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF),
         BubbleHover = Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF),
         CornerRadius = 5,
         Padding = new Thickness(7, 0, 7, 0),
-        Spacing = 8,
+        Spacing = dividers ? 12 : 8,           // a little more room so the divider has breathing space
         IconSaturation = 0.5,
         Acrylic = true,
         AcrylicTint = Color.FromArgb(0xB0, 0x20, 0x20, 0x24),
         BottomHighlight = true,
-        FluidDropdowns = fluid
+        FluidDropdowns = fluid,
+        WidgetDividers = dividers
     };
 
     private static ThemeDef SquirclesLike(double corner, bool fluid) => new()
@@ -56,7 +58,7 @@ public static class Themes
     {
         LintelTheme.Power => PowerLike(false),
         LintelTheme.Resin => PowerLike(false),                       // fluid dropdowns removed for now
-        LintelTheme.Mond => SquirclesLike(squircleCorner, false),    // fluid dropdowns removed for now
+        LintelTheme.Mond => PowerLike(false, dividers: true),        // Power + subtle dividers between widgets
         LintelTheme.Islands => new ThemeDef
         {
             BubbleIdle = Color.FromArgb(0x16, 0xFF, 0xFF, 0xFF),
@@ -76,7 +78,7 @@ public static class Themes
 
     /// <summary>Themes offered in the UI (fluid-dropdown themes are hidden for now).</summary>
     public static readonly LintelTheme[] Selectable =
-        { LintelTheme.Squircles, LintelTheme.Power, LintelTheme.Islands };
+        { LintelTheme.Squircles, LintelTheme.Power, LintelTheme.Islands, LintelTheme.Mond };
 
     public static string DisplayName(LintelTheme t) => t switch
     {

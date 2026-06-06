@@ -18,6 +18,13 @@ public sealed class AnimatedBarPanel : Panel
 
     public double Spacing { get => (double)GetValue(SpacingProperty); set => SetValue(SpacingProperty, value); }
 
+    /// <summary>If set, a thin vertical line is drawn in the gap between adjacent widgets (Mond theme).</summary>
+    public static readonly DependencyProperty DividerBrushProperty =
+        DependencyProperty.Register(nameof(DividerBrush), typeof(Brush), typeof(AnimatedBarPanel),
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public Brush? DividerBrush { get => (Brush?)GetValue(DividerBrushProperty); set => SetValue(DividerBrushProperty, value); }
+
     /// <summary>An element that should not be auto-animated (because it's being dragged).</summary>
     public UIElement? DragExempt { get; set; }
 
@@ -49,7 +56,29 @@ public sealed class AnimatedBarPanel : Panel
             AnimateToSlot(child, x);
             x += cw + Spacing;
         }
+        if (DividerBrush != null) InvalidateVisual();
         return finalSize;
+    }
+
+    protected override void OnRender(DrawingContext dc)
+    {
+        base.OnRender(dc);
+        if (DividerBrush == null || InternalChildren.Count < 2) return;
+
+        var pen = new Pen(DividerBrush, 1); pen.Freeze();
+        double h = RenderSize.Height;
+        double inset = Math.Max(4, h * 0.24);
+        double x = 0;
+        for (int i = 0; i < InternalChildren.Count; i++)
+        {
+            x += InternalChildren[i].DesiredSize.Width;
+            if (i < InternalChildren.Count - 1)
+            {
+                double lineX = Math.Round(x + Spacing / 2.0) + 0.5;   // crisp 1px line centred in the gap
+                dc.DrawLine(pen, new Point(lineX, inset), new Point(lineX, h - inset));
+                x += Spacing;
+            }
+        }
     }
 
     private void AnimateToSlot(UIElement child, double newX)

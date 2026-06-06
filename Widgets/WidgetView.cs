@@ -24,6 +24,8 @@ public sealed class WidgetView : Border
     private TextBlock? _dynamicText;
     private TextBlock? _modeText;
     private TextBlock? _loadText;
+    private TextBlock? _statText;
+    private TextBlock? _wsText;
     private System.Windows.Shapes.Ellipse? _loadDot;
     private StackPanel? _tabsHost;
     private string _winSig = "";
@@ -84,6 +86,8 @@ public sealed class WidgetView : Border
         WidgetKind.Workspaces => BuildWorkspaces(),
         WidgetKind.Load => BuildLoad(),
         WidgetKind.Media => BuildMedia(),
+        WidgetKind.Claude => BuildStatWidget("claude", Color.FromRgb(0xD9, 0x77, 0x57), "—"),
+        WidgetKind.GitHub => BuildStatWidget("github", Color.FromRgb(0xE6, 0xE6, 0xEA), "—"),
         _ => BuildText(out _dynamicText, false)
     };
 
@@ -174,11 +178,63 @@ public sealed class WidgetView : Border
     private UIElement BuildWorkspaces()
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        row.Children.Add(Arrow("‹", -1));   // ‹
-        row.Children.Add(IconPath("workspaces", IconColor(Accent), 14));
-        row.Children.Add(Arrow("›", +1));   // ›
+        row.Children.Add(ArrowButton("‹", -1));
+        _wsText = new TextBlock
+        {
+            FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = Foreground,
+            VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center,
+            Margin = new Thickness(7, 0, 7, 0), MinWidth = 64, TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        RefreshWorkspace();
+        row.Children.Add(_wsText);
+        row.Children.Add(ArrowButton("›", +1));
         return WrapWithBadge(row);
     }
+
+    private void RefreshWorkspace()
+    {
+        if (_wsText != null) _wsText.Text = _preview ? "Desktop 1" : DesktopInfo.CurrentName();
+    }
+
+    // A standout arrow rendered as its own little button (its own bubble + hover).
+    private Border ArrowButton(string glyph, int dir)
+    {
+        var idle = Frozen(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF));
+        var hover = Frozen(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+        var b = new Border
+        {
+            Width = 22, Height = 22, CornerRadius = new CornerRadius(6),
+            Background = idle, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = glyph, FontSize = 14, FontWeight = FontWeights.SemiBold, Foreground = Foreground, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, -2, 0, 0) }
+        };
+        b.MouseEnter += (_, _) => { if (!_host.Customizing) b.Background = hover; };
+        b.MouseLeave += (_, _) => b.Background = idle;
+        b.MouseLeftButtonDown += (_, e) =>
+        {
+            if (_host.Customizing) return;
+            e.Handled = true;
+            _host.SwitchWorkspace(dir);
+            Dispatcher.BeginInvoke(new Action(RefreshWorkspace), System.Windows.Threading.DispatcherPriority.Background);
+        };
+        return b;
+    }
+
+    // Icon + compact stat (Claude tokens left / GitHub contributions). Updated via SetStat.
+    private UIElement BuildStatWidget(string icon, Color tint, string initial)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        row.Children.Add(IconPath(icon, IconColor(tint), 16));
+        _statText = new TextBlock
+        {
+            Text = initial, FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = Foreground,
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 1, 0)
+        };
+        row.Children.Add(_statText);
+        return WrapWithBadge(row);
+    }
+
+    /// <summary>Set the compact label on a Claude/GitHub widget.</summary>
+    public void SetStat(string text) { if (_statText != null) _statText.Text = text; }
 
     private Image? _mediaCover;
     private Path? _mediaPlaceholder;
@@ -351,6 +407,7 @@ public sealed class WidgetView : Border
             case WidgetKind.Load: RefreshLoad(); break;
             case WidgetKind.Media: UpdateMedia(); break;
             case WidgetKind.Mode: UpdateModeText(); break;
+            case WidgetKind.Workspaces: RefreshWorkspace(); break;
             default: if (_dynamicText != null) Refresh(_dynamicText); break;
         }
     }
@@ -456,6 +513,8 @@ public sealed class WidgetView : Border
             case WidgetKind.Gauge:
             case WidgetKind.Load:
             case WidgetKind.Media:
+            case WidgetKind.Claude:
+            case WidgetKind.GitHub:
                 if (!_host.OpenOnHover) _host.OpenWidgetDropdown(this, hover: false);
                 break;
         }

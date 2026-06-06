@@ -227,12 +227,20 @@
 
                         <TextBlock Text="THEME" Style="{StaticResource Section}"/>
                         <Border Background="#FF2C2C30" CornerRadius="9" Padding="3">
-                            <UniformGrid Rows="1" Columns="3">
+                            <UniformGrid Rows="1" Columns="4">
                                 <Button x:Name="ThemeSquircles" Style="{StaticResource Seg}" Click="Theme_Click" Tag="0" Content="Squircles"/>
                                 <Button x:Name="ThemePower"     Style="{StaticResource Seg}" Click="Theme_Click" Tag="1" Content="Power"/>
                                 <Button x:Name="ThemeIslands"   Style="{StaticResource Seg}" Click="Theme_Click" Tag="2" Content="Islands"/>
+                                <Button x:Name="ThemeMond"      Style="{StaticResource Seg}" Click="Theme_Click" Tag="3" Content="Mond"/>
                             </UniformGrid>
                         </Border>
+
+                        <TextBlock Text="CLAUDE WIDGET" Style="{StaticResource Section}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="Token budget per 5h (0 = show usage)"/>
+                            <TextBox Grid.Column="1" x:Name="ClaudeLimitBox"/>
+                        </Grid>
                     </StackPanel>
                 </Grid>
 

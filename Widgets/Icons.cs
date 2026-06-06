@@ -23,8 +23,57 @@ public static class Icons
         "workspaces" => Workspaces(),
         "settings" => Gear(),
         "media" => Media(),
+        "claude" => Claude(),
+        "github" => GitHub(),
         _ => null
     };
+
+    // Anthropic-style sunburst mark
+    private static Geometry Claude()
+    {
+        const double cx = 12, cy = 12;
+        var g = new GeometryGroup();
+        int rays = 12;
+        for (int i = 0; i < rays; i++)
+        {
+            double a = i * (Math.PI * 2 / rays) - Math.PI / 2;
+            var p1 = Polar(cx, cy, 2.6, a);
+            var p2 = Polar(cx, cy, 10.5, a);
+            // widen the ray into a thin wedge
+            var n = new Vector(-Math.Sin(a), Math.Cos(a)) * 1.15;
+            var wedge = new PathFigure { StartPoint = new Point(p1.X + n.X * 0.4, p1.Y + n.Y * 0.4), IsClosed = true };
+            wedge.Segments.Add(new LineSegment(new Point(p2.X + n.X, p2.Y + n.Y), true));
+            wedge.Segments.Add(new LineSegment(new Point(p2.X - n.X, p2.Y - n.Y), true));
+            wedge.Segments.Add(new LineSegment(new Point(p1.X - n.X * 0.4, p1.Y - n.Y * 0.4), true));
+            var wg = new PathGeometry(); wg.Figures.Add(wedge);
+            g.Children.Add(wg);
+        }
+        return Freeze(g);
+    }
+
+    // GitHub Octocat silhouette: eared head + body, with small eyes punched out.
+    private static Geometry GitHub()
+    {
+        var silhouette = new GeometryGroup { FillRule = FillRule.Nonzero };
+        silhouette.Children.Add(E(12, 11.5, 7.3));                     // head
+        silhouette.Children.Add(Poly((6.2, 6.8), (8.6, 3.4), (10.4, 7.2)));  // left ear
+        silhouette.Children.Add(Poly((17.8, 6.8), (15.4, 3.4), (13.6, 7.2))); // right ear
+        silhouette.Children.Add(R(6.5, 14.5, 11, 6.5, 3));            // body/tentacles
+
+        var eyes = new GeometryGroup();
+        eyes.Children.Add(E(9.6, 11, 1.25));
+        eyes.Children.Add(E(14.4, 11, 1.25));
+
+        return Freeze(new CombinedGeometry(GeometryCombineMode.Exclude, silhouette, eyes));
+    }
+
+    private static Geometry Poly(params (double x, double y)[] pts)
+    {
+        var fig = new PathFigure { StartPoint = new Point(pts[0].x, pts[0].y), IsClosed = true };
+        for (int i = 1; i < pts.Length; i++) fig.Segments.Add(new LineSegment(new Point(pts[i].x, pts[i].y), true));
+        var pg = new PathGeometry(); pg.Figures.Add(fig);
+        return pg;
+    }
 
     private static Geometry Media()
     {

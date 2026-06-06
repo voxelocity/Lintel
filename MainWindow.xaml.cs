@@ -102,7 +102,7 @@ public partial class MainWindow : Window, IWidgetHost
     public bool OpenOnHover => _settings.OpenOnHover;
 
     public bool HasDropdown(WidgetView view) => view.Descriptor.Kind
-        is WidgetKind.Gauge or WidgetKind.Load or WidgetKind.Media;
+        is WidgetKind.Gauge or WidgetKind.Load or WidgetKind.Media or WidgetKind.Claude or WidgetKind.GitHub;
 
     public void OpenWidgetDropdown(WidgetView view, bool hover)
     {
@@ -117,6 +117,8 @@ public partial class MainWindow : Window, IWidgetHost
             case WidgetKind.Gauge: ShowGraph(view, GetMetric(view.Key)); break;
             case WidgetKind.Load: ShowResourcePanel(view); break;
             case WidgetKind.Media: ShowMediaPanel(view); break;
+            case WidgetKind.Claude: ShowClaudePanel(view); break;
+            case WidgetKind.GitHub: ShowGitHubPanel(view); break;
         }
     }
 
@@ -311,8 +313,12 @@ public partial class MainWindow : Window, IWidgetHost
         PanelRight.Children.Clear();
         _allWidgets.Clear();
 
-        double spacing = Themes.For(_settings.Theme, _settings.WidgetCornerRadius).Spacing;
-        PanelLeft.Spacing = PanelCenter.Spacing = PanelRight.Spacing = spacing;
+        var t = Themes.For(_settings.Theme, _settings.WidgetCornerRadius);
+        PanelLeft.Spacing = PanelCenter.Spacing = PanelRight.Spacing = t.Spacing;
+
+        Brush? divider = null;
+        if (t.WidgetDividers) { var d = new SolidColorBrush(Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF)); d.Freeze(); divider = d; }
+        PanelLeft.DividerBrush = PanelCenter.DividerBrush = PanelRight.DividerBrush = divider;
 
         AddZone(PanelLeft, _settings.LeftWidgets);
         AddZone(PanelCenter, _settings.CenterWidgets);
@@ -351,6 +357,7 @@ public partial class MainWindow : Window, IWidgetHost
     private void RefreshDynamicWidgets()
     {
         foreach (var w in _allWidgets) w.RefreshDynamic();
+        RefreshDevWidgets();
     }
 
     private void PersistLayout()
@@ -1360,6 +1367,319 @@ public partial class MainWindow : Window, IWidgetHost
     }
 
     private static string Fmt(TimeSpan t) => t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
+
+    // =========================================================== Claude usage widget
+
+    private ClaudeStats? _claudeStats;
+    private DateTime _claudeAt;
+    private GitHubStats? _githubStats;
+    private DateTime _githubAt;
+
+    private static readonly Color ClaudeAccent = Color.FromRgb(0xD9, 0x77, 0x57);
+    private static readonly Color GitHubAccent = Color.FromRgb(0x39, 0xD3, 0x53);
+
+    private static string Compact(double n)
+    {
+        if (n >= 1_000_000_000) return (n / 1_000_000_000).ToString("0.#") + "B";
+        if (n >= 1_000_000) return (n / 1_000_000).ToString("0.#") + "M";
+        if (n >= 1_000) return (n / 1_000).ToString("0.#") + "k";
+        return ((long)n).ToString();
+    }
+
+    private static string Countdown(DateTime? reset)
+    {
+        if (reset is not DateTime r) return "—";
+        var span = r - DateTime.Now;
+        if (span <= TimeSpan.Zero) return "now";
+        return span.TotalHours >= 1 ? $"{(int)span.TotalHours}h {span.Minutes}m" : $"{span.Minutes}m";
+    }
+
+    public void ShowClaudePanel(WidgetView view)
+    {
+        const double W = 300;
+        var panel = new StackPanel { Width = W };
+        panel.Children.Add(SectionLabel("CLAUDE USAGE"));
+
+        if (!ClaudeUsage.Available)
+        {
+            panel.Children.Add(Hint("Claude Code logs not found.\nUsage appears once you've used Claude Code on this PC."));
+            OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W);
+            return;
+        }
+
+        var bigVal = new TextBlock { Text = "…", Foreground = Brushes.White, FontSize = 26, FontWeight = FontWeights.Bold };
+        var bigLbl = new TextBlock { Text = "loading", Foreground = Sub(), FontSize = 11.5, Margin = new Thickness(0, 0, 0, 0) };
+        var bigRow = new StackPanel { Margin = new Thickness(0, 2, 0, 10) };
+        bigRow.Children.Add(bigVal);
+        bigRow.Children.Add(bigLbl);
+        panel.Children.Add(bigRow);
+
+        var resetRow = StatLine("Window frees up", "—");
+        var todayRow = StatLine("Today", "—");
+        panel.Children.Add(resetRow.row);
+        panel.Children.Add(todayRow.row);
+
+        panel.Children.Add(new Border { Height = 1, Background = HairLine(), Margin = new Thickness(0, 10, 0, 10) });
+        var heat = new Controls.Heatmap { HorizontalAlignment = HorizontalAlignment.Center };
+        panel.Children.Add(heat);
+        var heatCaption = new TextBlock { Text = "last 17 weeks", Foreground = Sub(), FontSize = 10, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
+        panel.Children.Add(heatCaption);
+
+        panel.Children.Add(OpenButton("Open claude.ai", ClaudeAccent, () => OpenUrl("https://claude.ai")));
+
+        OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W);
+
+        void Apply(ClaudeStats s)
+        {
+            long limit = _settings.ClaudeTokenLimit;
+            if (limit > 0)
+            {
+                long left = Math.Max(0, limit - s.WindowUsed);
+                bigVal.Text = Compact(left);
+                bigLbl.Text = $"tokens left  ·  {Compact(s.WindowUsed)} of {Compact(limit)} used";
+            }
+            else
+            {
+                bigVal.Text = Compact(s.WindowUsed);
+                bigLbl.Text = "tokens this session (5h window)";
+            }
+            resetRow.val.Text = Countdown(s.WindowReset);
+            todayRow.val.Text = Compact(s.Today) + " tokens";
+            heat.SetData(s.Daily, ClaudeAccent);
+            if (!s.HasData) { bigVal.Text = "0"; bigLbl.Text = "no usage recorded yet"; }
+        }
+
+        if (_claudeStats != null && (DateTime.UtcNow - _claudeAt).TotalSeconds < 120) Apply(_claudeStats);
+        ClaudeUsage.LoadAsync().ContinueWith(t =>
+        {
+            if (!t.IsCompletedSuccessfully) return;
+            _claudeStats = t.Result; _claudeAt = DateTime.UtcNow;
+            Dispatcher.BeginInvoke(new Action(() => Apply(t.Result)));
+        });
+    }
+
+    // =========================================================== GitHub widget
+
+    public void ShowGitHubPanel(WidgetView view)
+    {
+        const double W = 320;
+        var panel = new StackPanel { Width = W };
+        var header = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 0, 0, 8) };
+        var hLeft = SectionLabel("GITHUB"); hLeft.Margin = new Thickness(2, 0, 0, 0);
+        DockPanel.SetDock(hLeft, Dock.Left);
+        var loginTb = new TextBlock { Text = "", Foreground = Sub(), FontSize = 10.5, FontWeight = FontWeights.SemiBold };
+        DockPanel.SetDock(loginTb, Dock.Right);
+        header.Children.Add(hLeft); header.Children.Add(loginTb);
+        panel.Children.Add(header);
+
+        if (!GitHubService.GhAvailable)
+            panel.Children.Add(Hint("GitHub CLI (gh) not found.\nInstall it and run `gh auth login` to enable cloning, repo creation and your contribution graph."));
+
+        // contribution heatmap
+        var heat = new Controls.Heatmap { HorizontalAlignment = HorizontalAlignment.Center };
+        panel.Children.Add(heat);
+        var totalTb = new TextBlock { Text = GitHubService.GhAvailable ? "loading contributions…" : "", Foreground = Sub(), FontSize = 10.5, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
+        panel.Children.Add(totalTb);
+
+        panel.Children.Add(new Border { Height = 1, Background = HairLine(), Margin = new Thickness(0, 12, 0, 10) });
+
+        // clone row
+        panel.Children.Add(new TextBlock { Text = "CLONE A REPO", Foreground = Sub(), FontSize = 9.5, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 0, 6) });
+        var cloneBox = new TextBox
+        {
+            Background = new SolidColorBrush(Color.FromRgb(0x2C, 0x2C, 0x30)), Foreground = Brushes.White, CaretBrush = Brushes.White,
+            BorderThickness = new Thickness(0), Padding = new Thickness(8, 6, 8, 6), FontSize = 12.5,
+            Height = 30, VerticalContentAlignment = VerticalAlignment.Center
+        };
+        cloneBox.SetValue(System.Windows.Controls.Primitives.TextBoxBase.AutoWordSelectionProperty, false);
+        var cloneGrid = new Grid();
+        cloneGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        cloneGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(cloneBox, 0); cloneGrid.Children.Add(cloneBox);
+        var placeholder = new TextBlock { Text = "owner/repo or URL", Foreground = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x86)), FontSize = 12.5, IsHitTestVisible = false, Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        cloneBox.TextChanged += (_, _) => placeholder.Visibility = string.IsNullOrEmpty(cloneBox.Text) ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumn(placeholder, 0); cloneGrid.Children.Add(placeholder);
+        var cloneBtn = SmallButton("Clone", GitHubAccent);
+        Grid.SetColumn(cloneBtn, 1); cloneBtn.Margin = new Thickness(8, 0, 0, 0); cloneGrid.Children.Add(cloneBtn);
+        panel.Children.Add(cloneGrid);
+
+        var status = new TextBlock { Text = "", Foreground = Sub(), FontSize = 11, Margin = new Thickness(2, 7, 0, 0), TextWrapping = TextWrapping.Wrap };
+        panel.Children.Add(status);
+
+        // create-from-folder row
+        var createBtn = OpenButton("New repo from a folder…", GitHubAccent, null);
+        panel.Children.Add(createBtn);
+
+        string cloneTarget = string.IsNullOrWhiteSpace(_settings.CloneTargetFolder) ? GitHubService.DesktopDir : _settings.CloneTargetFolder;
+
+        cloneBtn.MouseLeftButtonDown += async (_, e) =>
+        {
+            e.Handled = true;
+            var url = cloneBox.Text.Trim();
+            if (url.Length == 0) { status.Text = "Enter a repo URL or owner/repo."; return; }
+            status.Foreground = Sub(); status.Text = $"Cloning into {cloneTarget}…";
+            var r = await GitHubService.CloneAsync(url, cloneTarget);
+            status.Foreground = r.Ok ? new SolidColorBrush(GitHubAccent) : new SolidColorBrush(Color.FromRgb(0xFF, 0x6B, 0x6B));
+            status.Text = r.Ok ? "Cloned to " + cloneTarget : FirstLine(r.StdErr, "Clone failed");
+            if (r.Ok) cloneBox.Clear();
+        };
+
+        createBtn.MouseLeftButtonDown += async (_, e) =>
+        {
+            e.Handled = true;
+            var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Choose a folder to publish as a new repo", InitialDirectory = GitHubService.DesktopDir };
+            FocusWindowForDialog();
+            if (dlg.ShowDialog(this) != true) return;
+            status.Foreground = Sub(); status.Text = $"Creating repo from {System.IO.Path.GetFileName(dlg.FolderName)}…";
+            var r = await GitHubService.CreateFromFolderAsync(dlg.FolderName, isPrivate: true);
+            status.Foreground = r.Ok ? new SolidColorBrush(GitHubAccent) : new SolidColorBrush(Color.FromRgb(0xFF, 0x6B, 0x6B));
+            status.Text = r.Ok ? "Created & pushed to GitHub." : FirstLine(r.StdErr, "Could not create repo");
+        };
+
+        OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W);
+
+        void Apply(GitHubStats s)
+        {
+            if (s.HasData)
+            {
+                heat.SetData(s.Daily, GitHubAccent);
+                totalTb.Text = $"{s.Total:N0} contributions in the last year";
+                loginTb.Text = s.Login.Length > 0 ? "@" + s.Login : "";
+            }
+            else if (s.Error != null)
+            {
+                totalTb.Text = s.Error;
+            }
+        }
+
+        if (GitHubService.GhAvailable)
+        {
+            if (_githubStats != null && (DateTime.UtcNow - _githubAt).TotalSeconds < 600) Apply(_githubStats);
+            GitHubService.LoadContributionsAsync().ContinueWith(t =>
+            {
+                if (!t.IsCompletedSuccessfully) return;
+                _githubStats = t.Result; _githubAt = DateTime.UtcNow;
+                Dispatcher.BeginInvoke(new Action(() => Apply(t.Result)));
+            });
+        }
+    }
+
+    // ---- dev-widget shared UI helpers ----
+
+    private static SolidColorBrush Sub() => new(Color.FromRgb(0x8E, 0x8E, 0x93));
+    private static SolidColorBrush HairLine() => new(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF));
+
+    private static TextBlock SectionLabel(string text) =>
+        new() { Text = text, Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 10, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 0, 8) };
+
+    private static TextBlock Hint(string text) =>
+        new() { Text = text, Foreground = new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB5)), FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(2, 2, 2, 4) };
+
+    private (Grid row, TextBlock val) StatLine(string label, string value)
+    {
+        var row = new Grid { Margin = new Thickness(0, 0, 0, 5) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var l = new TextBlock { Text = label, Foreground = Sub(), FontSize = 12 };
+        var v = new TextBlock { Text = value, Foreground = Brushes.White, FontSize = 12, FontWeight = FontWeights.SemiBold };
+        Grid.SetColumn(l, 0); Grid.SetColumn(v, 1);
+        row.Children.Add(l); row.Children.Add(v);
+        return (row, v);
+    }
+
+    private Border OpenButton(string text, Color accent, Action? onClick)
+    {
+        var b = new Border
+        {
+            CornerRadius = new CornerRadius(9), Margin = new Thickness(0, 12, 0, 0), Cursor = Cursors.Hand,
+            Background = new SolidColorBrush(Color.FromArgb(0x26, accent.R, accent.G, accent.B)),
+            Padding = new Thickness(0, 9, 0, 9),
+            Child = new TextBlock { Text = text, Foreground = Brushes.White, FontSize = 12.5, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center }
+        };
+        if (onClick != null) b.MouseLeftButtonDown += (_, e) => { e.Handled = true; onClick(); };
+        return b;
+    }
+
+    private Border SmallButton(string text, Color accent)
+    {
+        return new Border
+        {
+            CornerRadius = new CornerRadius(7), Cursor = Cursors.Hand, Height = 30,
+            Background = new SolidColorBrush(accent),
+            Padding = new Thickness(14, 0, 14, 0),
+            Child = new TextBlock { Text = text, Foreground = Brushes.White, FontSize = 12.5, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+        };
+    }
+
+    private void OpenDevOverlay(FrameworkElement card, WidgetView view, double width)
+    {
+        double off = view.TranslatePoint(new Point(0, 0), BarRoot).X - 20;
+        off = Math.Clamp(off, 8, Math.Max(8, BarRoot.ActualWidth - width - 28));
+        // dev panels have inputs/buttons → make the overlay focusable so clicks register
+        OpenOverlay(card, BarRoot, off, focusable: true);
+    }
+
+    private void FocusWindowForDialog()
+    {
+        if (_hwnd == IntPtr.Zero) return;
+        int ex = GetWindowLong(_hwnd, GWL_EXSTYLE);
+        SetWindowLong(_hwnd, GWL_EXSTYLE, ex & ~WS_EX_NOACTIVATE & ~WS_EX_TRANSPARENT);
+        SetForegroundWindow(_hwnd);
+        Activate();
+    }
+
+    private static string FirstLine(string s, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return fallback;
+        var line = s.Split('\n').FirstOrDefault(l => l.Trim().Length > 0)?.Trim();
+        return string.IsNullOrEmpty(line) ? fallback : line;
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch { /* ignore */ }
+    }
+
+    // ---- compact bar labels, refreshed on a slow cadence ----
+
+    private void RefreshDevWidgets()
+    {
+        var claudeViews = _allWidgets.Where(w => w.Descriptor.Kind == WidgetKind.Claude).ToList();
+        var githubViews = _allWidgets.Where(w => w.Descriptor.Kind == WidgetKind.GitHub).ToList();
+
+        if (claudeViews.Count > 0 && ClaudeUsage.Available && (DateTime.UtcNow - _claudeAt).TotalSeconds > 90)
+        {
+            _claudeAt = DateTime.UtcNow;
+            ClaudeUsage.LoadAsync().ContinueWith(t =>
+            {
+                if (!t.IsCompletedSuccessfully) return;
+                _claudeStats = t.Result;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    long limit = _settings.ClaudeTokenLimit;
+                    string label = limit > 0 ? Compact(Math.Max(0, limit - t.Result.WindowUsed)) : Compact(t.Result.WindowUsed);
+                    foreach (var v in claudeViews) v.SetStat(label);
+                }));
+            });
+        }
+
+        if (githubViews.Count > 0 && GitHubService.GhAvailable && (DateTime.UtcNow - _githubAt).TotalSeconds > 600)
+        {
+            _githubAt = DateTime.UtcNow;
+            GitHubService.LoadContributionsAsync().ContinueWith(t =>
+            {
+                if (!t.IsCompletedSuccessfully) return;
+                _githubStats = t.Result;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    double todayCount = t.Result.Daily.Length > 0 ? t.Result.Daily[^1] : 0;
+                    string label = t.Result.HasData ? ((long)todayCount).ToString() : "—";
+                    foreach (var v in githubViews) v.SetStat(label);
+                }));
+            });
+        }
+    }
 
     private Border MediaCtrl(Geometry geo, Action onClick, double size)
     {

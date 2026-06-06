@@ -45,11 +45,12 @@ public partial class SettingsPanel : UserControl
     private void LoadFromSettings()
     {
         _selMode = (int)_settings.Mode;
-        // Resin/Mond (fluid) are hidden; show their non-fluid base instead.
+        // Resin (hidden fluid variant) maps onto Power.
         _selTheme = _settings.Theme switch
         {
             LintelTheme.Power or LintelTheme.Resin => 1,
             LintelTheme.Islands => 2,
+            LintelTheme.Mond => 3,
             _ => 0
         };
         UpdateModeButtons();
@@ -74,7 +75,11 @@ public partial class SettingsPanel : UserControl
         Clock24Chk.IsChecked = _settings.Use24HourClock;
         MonitorBox.Text = _settings.MonitorIndex.ToString();
         StartupChk.IsChecked = _settings.LaunchAtStartup;
+        ClaudeLimitBox.Text = _settings.ClaudeTokenLimit.ToString();
     }
+
+    private static readonly LintelTheme[] ThemeOrder =
+        { LintelTheme.Squircles, LintelTheme.Power, LintelTheme.Islands, LintelTheme.Mond };
 
     private void WriteQuick()
     {
@@ -88,7 +93,8 @@ public partial class SettingsPanel : UserControl
     private void WriteAdvanced()
     {
         _settings.Mode = (VisibilityMode)_selMode;
-        _settings.Theme = (LintelTheme)_selTheme;
+        _settings.Theme = ThemeOrder[Math.Clamp(_selTheme, 0, ThemeOrder.Length - 1)];
+        _settings.ClaudeTokenLimit = Math.Max(0, ParseL(ClaudeLimitBox.Text, _settings.ClaudeTokenLimit));
         _settings.RevealHoldMs = ParseI(RevealHoldBox.Text, _settings.RevealHoldMs);
         _settings.HideDelayMs = ParseI(HideDelayBox.Text, _settings.HideDelayMs);
         _settings.TriggerZonePx = ParseI(TriggerZoneBox.Text, _settings.TriggerZonePx);
@@ -150,7 +156,7 @@ public partial class SettingsPanel : UserControl
     {
         var on = new SolidColorBrush(Color.FromRgb(0x0A, 0x84, 0xFF));
         var dim = new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xD5));
-        Button[] btns = { ThemeSquircles, ThemePower, ThemeIslands };
+        Button[] btns = { ThemeSquircles, ThemePower, ThemeIslands, ThemeMond };
         for (int i = 0; i < btns.Length; i++)
         {
             btns[i].Background = _selTheme == i ? on : Brushes.Transparent;
@@ -218,5 +224,6 @@ public partial class SettingsPanel : UserControl
 
     private static int ParseI(string t, int f) => int.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : f;
     private static double ParseD(string t, double f) => double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : f;
+    private static long ParseL(string t, long f) => long.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : f;
     private static string NonEmpty(string t, string f) => string.IsNullOrWhiteSpace(t) ? f : t.Trim();
 }
