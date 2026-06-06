@@ -13,7 +13,9 @@ public enum LintelTheme
     /// <summary>Each zone is its own floating rounded bar with gaps between them; fluid dropdowns.</summary>
     Islands,
     /// <summary>Like Power, but with fluid Dynamic-Island-style dropdowns.</summary>
-    Resin
+    Resin,
+    /// <summary>Squircles layout with fluid dropdowns that stretch out of the bar.</summary>
+    Mond
 }
 
 public enum VisibilityMode

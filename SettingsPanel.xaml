@@ -95,10 +95,8 @@
         </Style>
     </UserControl.Resources>
 
-    <Border x:Name="Root" Background="#F51F1F23" CornerRadius="16" RenderTransformOrigin="0.5,0">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="6" Opacity="0.55" Color="Black"/>
-        </Border.Effect>
+    <!-- Background + shadow are supplied by the host Card so the panel matches the theme. -->
+    <Border x:Name="Root" Background="Transparent" CornerRadius="16" RenderTransformOrigin="0.5,0">
         <Border.RenderTransform>
             <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1"/>
         </Border.RenderTransform>
@@ -229,11 +227,12 @@
 
                         <TextBlock Text="THEME" Style="{StaticResource Section}"/>
                         <Border Background="#FF2C2C30" CornerRadius="9" Padding="3">
-                            <UniformGrid Rows="2" Columns="2">
+                            <UniformGrid Rows="3" Columns="2">
                                 <Button x:Name="ThemeSquircles" Style="{StaticResource Seg}" Click="Theme_Click" Tag="0" Content="Squircles"/>
                                 <Button x:Name="ThemePower"     Style="{StaticResource Seg}" Click="Theme_Click" Tag="1" Content="Power"/>
                                 <Button x:Name="ThemeIslands"   Style="{StaticResource Seg}" Click="Theme_Click" Tag="2" Content="Islands"/>
                                 <Button x:Name="ThemeResin"     Style="{StaticResource Seg}" Click="Theme_Click" Tag="3" Content="Resin"/>
+                                <Button x:Name="ThemeMond"      Style="{StaticResource Seg}" Click="Theme_Click" Tag="4" Content="Mond"/>
                             </UniformGrid>
                         </Border>
                     </StackPanel>

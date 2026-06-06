@@ -39,10 +39,24 @@ public static class Themes
         FluidDropdowns = fluid
     };
 
+    private static ThemeDef SquirclesLike(double corner, bool fluid) => new()
+    {
+        BubbleIdle = Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x28, 0xFF, 0xFF, 0xFF),
+        CornerRadius = corner,
+        Padding = new Thickness(8, 0, 8, 0),
+        Spacing = 4,
+        IconSaturation = 1.0,
+        Acrylic = false,
+        BottomHighlight = false,
+        FluidDropdowns = fluid
+    };
+
     public static ThemeDef For(LintelTheme theme, double squircleCorner) => theme switch
     {
         LintelTheme.Power => PowerLike(false),
         LintelTheme.Resin => PowerLike(true),
+        LintelTheme.Mond => SquirclesLike(squircleCorner, true),
         LintelTheme.Islands => new ThemeDef
         {
             BubbleIdle = Color.FromArgb(0x16, 0xFF, 0xFF, 0xFF),
@@ -57,17 +71,7 @@ public static class Themes
             ZoneBackground = Color.FromArgb(0xE6, 0x1C, 0x1C, 0x1E),
             FluidDropdowns = false   // connected dropdown clips against the floating pills
         },
-        _ => new ThemeDef
-        {
-            BubbleIdle = Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF),
-            BubbleHover = Color.FromArgb(0x28, 0xFF, 0xFF, 0xFF),
-            CornerRadius = squircleCorner,
-            Padding = new Thickness(8, 0, 8, 0),
-            Spacing = 4,
-            IconSaturation = 1.0,
-            Acrylic = false,
-            BottomHighlight = false
-        }
+        _ => SquirclesLike(squircleCorner, false)
     };
 
     public static string DisplayName(LintelTheme t) => t switch
@@ -75,6 +79,7 @@ public static class Themes
         LintelTheme.Power => "Power",
         LintelTheme.Islands => "Islands",
         LintelTheme.Resin => "Resin",
+        LintelTheme.Mond => "Mond",
         _ => "Squircles"
     };
 }

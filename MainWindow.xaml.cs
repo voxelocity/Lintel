@@ -106,6 +106,8 @@ public partial class MainWindow : Window, IWidgetHost
 
     public void OpenWidgetDropdown(WidgetView view, bool hover)
     {
+        // Don't let a hover steal a click-opened (modal) dropdown or menu.
+        if (hover && OverlayPopup.IsOpen && !_overlayHover && !_overlayClosing) return;
         _overlayHideTimer.Stop();
         if (ReferenceEquals(_overlayOwner, view) && OverlayPopup.IsOpen && !_overlayClosing) return;
         _overlayOwner = view;
@@ -168,6 +170,7 @@ public partial class MainWindow : Window, IWidgetHost
     private Color _backdropTint;
 
     private bool _fluid;
+    private bool _shoulder;
     private Color _dropMaterial = Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23);
     private Color? _dropOutline;
 
@@ -183,6 +186,7 @@ public partial class MainWindow : Window, IWidgetHost
         _backdrop = theme.Acrylic;
         _backdropTint = theme.AcrylicTint;
         _fluid = theme.FluidDropdowns;
+        _shoulder = _fluid && !_backdrop;   // connected shoulder shape only when not blurred
 
         // Dropdowns share the bar's material + continue its outline.
         _dropMaterial = theme.SeparatedZones ? theme.ZoneBackground
@@ -854,6 +858,7 @@ public partial class MainWindow : Window, IWidgetHost
         _overlayHideTimer.Stop();
 
         OverlayHost.Content = content;
+        OverlayMargin.Margin = _backdrop ? new Thickness(0) : new Thickness(10, 0, 10, 12);
         OverlayPopup.PlacementTarget = target;
         OverlayPopup.Placement = PlacementMode.Bottom;
         OverlayPopup.HorizontalOffset = horizontalOffset;
@@ -862,6 +867,13 @@ public partial class MainWindow : Window, IWidgetHost
         if (!_overlayHover) ShowScrim();   // hover dropdowns are non-modal (no click-catcher)
         OverlayPopup.IsOpen = true;
         _forceOpen = true;
+
+        // Match the bar's material: blur the dropdown window for acrylic themes.
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (PresentationSource.FromVisual(OverlayHost) is System.Windows.Interop.HwndSource src)
+                NativeMethods.SetAcrylic(src.Handle, _backdrop, _backdropTint);
+        }), DispatcherPriority.Loaded);
 
         // Text-editing overlays (settings, note) need the window to accept keyboard focus.
         _overlayFocusable = focusable;
@@ -891,26 +903,41 @@ public partial class MainWindow : Window, IWidgetHost
     /// or a plain rounded card otherwise.</summary>
     private FrameworkElement Card(UIElement content, Thickness padding)
     {
-        var fill = new SolidColorBrush(_dropMaterial); fill.Freeze();
         Brush? stroke = _dropOutline is Color oc ? new SolidColorBrush(oc) : null;
         stroke?.Freeze();
-        var shadow = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black };
-        if (_fluid)
-            return new Controls.FluidCard { Fill = fill, Stroke = stroke, StrokeThickness = 1.2, BodyRadius = 16, Shoulder = 22, ContentPadding = padding, Child = content, Effect = shadow };
+
+        if (_shoulder)
+        {
+            // Solid connected shape that stretches out of the bar (Mond).
+            var fill = new SolidColorBrush(_dropMaterial); fill.Freeze();
+            return new Controls.FluidCard
+            {
+                Fill = fill, Stroke = stroke, StrokeThickness = 1.2, BodyRadius = 16, Shoulder = 22,
+                ContentPadding = padding, Child = content,
+                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black }
+            };
+        }
+
+        // Acrylic themes: near-transparent so the window blur (applied after open) shows
+        // through — same material as the bar. Solid themes: the bar colour.
+        var bg = _backdrop ? new SolidColorBrush(Color.FromArgb(0x01, 0, 0, 0)) : new SolidColorBrush(_dropMaterial);
+        bg.Freeze();
         return new Border
         {
-            Background = fill,
+            Background = bg,
             BorderBrush = stroke,
             BorderThickness = stroke != null ? new Thickness(1) : new Thickness(0),
-            CornerRadius = new CornerRadius(14),
+            CornerRadius = new CornerRadius(12),
             Padding = padding,
             Child = content,
-            Effect = shadow
+            Effect = _backdrop ? null : new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black }
         };
     }
 
+    private double ShoulderExtra => _shoulder ? 44 : 0;
+
     private void RecenterOverlay(double width) =>
-        OverlayPopup.HorizontalOffset = (BarRoot.ActualWidth / 2.0) - (width / 2.0);
+        OverlayPopup.HorizontalOffset = (BarRoot.ActualWidth / 2.0) - ((width + ShoulderExtra) / 2.0);
 
     private Action? _overlayClosed;
 
@@ -1356,7 +1383,8 @@ public partial class MainWindow : Window, IWidgetHost
         };
         panel.CloseRequested += CloseOverlay;
         panel.WidthChanged += RecenterOverlay;
-        OpenOverlayCentered(panel, panel.CurrentWidth, focusable: true);
+        var card = Card(panel, new Thickness(0));
+        OpenOverlayCentered(card, panel.CurrentWidth, focusable: true);
         if (advanced) panel.ExpandToAdvanced();
     }
 

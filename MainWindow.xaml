@@ -190,7 +190,7 @@
         <!-- Themed overlay hosting context menu / settings / about (no separate windows) -->
         <Popup x:Name="OverlayPopup" AllowsTransparency="True" Placement="Bottom"
                StaysOpen="True" PopupAnimation="None" VerticalOffset="6">
-            <Grid Margin="10,0,10,12">
+            <Grid x:Name="OverlayMargin" Margin="10,0,10,12">
                 <ContentPresenter x:Name="OverlayHost" RenderTransformOrigin="0.5,0">
                     <ContentPresenter.RenderTransform>
                         <ScaleTransform x:Name="OverlayScale" ScaleX="1" ScaleY="1"/>
