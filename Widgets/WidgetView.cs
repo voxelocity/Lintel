@@ -33,11 +33,13 @@ public sealed class WidgetView : Border
     private readonly Brush _hoverBg;
     private readonly double _iconSat;
     private readonly Color _fgColor;
+    private readonly bool _preview;
 
-    public WidgetView(IWidgetHost host, WidgetDescriptor descriptor)
+    public WidgetView(IWidgetHost host, WidgetDescriptor descriptor, bool preview = false)
     {
         _host = host;
         Descriptor = descriptor;
+        _preview = preview;
 
         var theme = Themes.For(host.Settings.Theme, host.Settings.WidgetCornerRadius);
         _idleBg = Frozen(theme.BubbleIdle);
@@ -57,6 +59,8 @@ public sealed class WidgetView : Border
         Accent = ParseColor(host.Settings.AccentColor, Color.FromRgb(0x0A, 0x84, 0xFF));
 
         Child = BuildContent();
+
+        if (_preview) { IsHitTestVisible = false; return; }   // static preview for the add menu
 
         MouseEnter += OnMouseEnter;
         MouseLeave += OnMouseLeave;
@@ -114,7 +118,8 @@ public sealed class WidgetView : Border
                 value.Text = _metric.Text.Replace("⚡", "").Trim();
             }
             UpdBattery();
-            _metric.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Metric.Text)) UpdBattery(); };
+            if (!_preview)
+                _metric.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Metric.Text)) UpdBattery(); };
         }
         else
         {

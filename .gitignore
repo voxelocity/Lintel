@@ -9,6 +9,7 @@ publish/
 # IDE
 .vs/
 .idea/
+.claude/
 *.user
 *.suo
 

@@ -656,28 +656,47 @@ public partial class MainWindow : Window, IWidgetHost
     {
         AddList.Children.Clear();
         var present = new HashSet<string>(_allWidgets.Select(w => w.Key));
-        foreach (var desc in WidgetCatalog.All)
+        int total = 0;
+
+        foreach (var category in WidgetCatalog.Categories)
         {
-            if (present.Contains(desc.Key)) continue;
-            var chip = new Border
+            var items = WidgetCatalog.All.Where(d => d.Category == category && !present.Contains(d.Key)).ToList();
+            if (items.Count == 0) continue;
+
+            AddList.Children.Add(new TextBlock
             {
-                Background = new SolidColorBrush(Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF)),
-                CornerRadius = new CornerRadius(9),
-                Padding = new Thickness(10, 5, 10, 5),
-                Margin = new Thickness(3),
-                Cursor = Cursors.Hand,
-                Child = new TextBlock { Text = desc.Name, Foreground = Brushes.White, FontSize = 12 }
-            };
-            var key = desc.Key;
-            chip.MouseLeftButtonDown += (_, ev) =>
+                Text = category.ToUpperInvariant(),
+                Foreground = new SolidColorBrush(Color.FromRgb(0x7A, 0x7A, 0x80)),
+                FontSize = 9.5, FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(4, total == 0 ? 0 : 10, 0, 5)
+            });
+
+            var wrap = new System.Windows.Controls.WrapPanel();
+            foreach (var desc in items)
             {
-                ev.Handled = true;
-                AddWidget(key);
-                AddPopup.IsOpen = false;
-            };
-            AddList.Children.Add(chip);
+                var key = desc.Key;
+                var chip = new Border
+                {
+                    CornerRadius = new CornerRadius(9),
+                    Background = Brushes.Transparent,
+                    Padding = new Thickness(4),
+                    Margin = new Thickness(2),
+                    Cursor = Cursors.Hand,
+                    ToolTip = desc.Name,
+                    MaxWidth = 150,
+                    ClipToBounds = true,
+                    Child = new WidgetView(this, desc, preview: true) { IsHitTestVisible = false }
+                };
+                chip.MouseEnter += (_, _) => chip.Background = new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF));
+                chip.MouseLeave += (_, _) => chip.Background = Brushes.Transparent;
+                chip.MouseLeftButtonDown += (_, ev) => { ev.Handled = true; AddWidget(key); AddPopup.IsOpen = false; };
+                wrap.Children.Add(chip);
+                total++;
+            }
+            AddList.Children.Add(wrap);
         }
-        if (AddList.Children.Count == 0)
+
+        if (total == 0)
             AddList.Children.Add(new TextBlock { Text = "All widgets added", Foreground = Brushes.Gray, FontSize = 12, Margin = new Thickness(4) });
     }
 
