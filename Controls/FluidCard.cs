@@ -18,6 +18,13 @@ public sealed class FluidCard : Decorator
     public double Shoulder { get; set; } = 20;       // flare connecting to the bar
     public Thickness ContentPadding { get; set; } = new(14);
 
+    /// <summary>0..1 grow: the body extends downward while the shoulders stay a fixed size.</summary>
+    public static readonly DependencyProperty RevealProperty =
+        DependencyProperty.Register(nameof(Reveal), typeof(double), typeof(FluidCard),
+            new FrameworkPropertyMetadata(1.0, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public double Reveal { get => (double)GetValue(RevealProperty); set => SetValue(RevealProperty, value); }
+
     protected override Size MeasureOverride(Size constraint)
     {
         double padW = Shoulder * 2 + ContentPadding.Left + ContentPadding.Right;
@@ -42,9 +49,15 @@ public sealed class FluidCard : Decorator
 
     protected override void OnRender(DrawingContext dc)
     {
-        double w = ActualWidth, h = ActualHeight;
-        if (w <= 0 || h <= 0) return;
-        double sh = Shoulder, rb = Math.Min(BodyRadius, (w - 2 * sh) / 2);
+        double w = ActualWidth, full = ActualHeight;
+        if (w <= 0 || full <= 0) return;
+        double sh = Shoulder;
+
+        // Grow the body downward; shoulders keep their fixed size.
+        double h = sh + Math.Max(0, full - sh) * Math.Clamp(Reveal, 0, 1);
+        Clip = new RectangleGeometry(new Rect(0, 0, w, h));
+
+        double rb = Math.Min(Math.Min(BodyRadius, (w - 2 * sh) / 2), Math.Max(0, (h - sh) / 2));
         double L = sh, R = w - sh;
 
         // Open figure (top edge left undrawn so it merges with the bar). Fill closes it

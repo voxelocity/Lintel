@@ -862,7 +862,7 @@ public partial class MainWindow : Window, IWidgetHost
         OverlayPopup.PlacementTarget = target;
         OverlayPopup.Placement = PlacementMode.Bottom;
         OverlayPopup.HorizontalOffset = horizontalOffset;
-        OverlayPopup.VerticalOffset = _fluid ? -1 : 4;
+        OverlayPopup.VerticalOffset = _fluid ? -2 : 4;   // overlap the bar slightly so it's seamless
 
         if (!_overlayHover) ShowScrim();   // hover dropdowns are non-modal (no click-catcher)
         OverlayPopup.IsOpen = true;
@@ -882,7 +882,20 @@ public partial class MainWindow : Window, IWidgetHost
         OverlayHost.BeginAnimation(OpacityProperty, null);
         OverlayScale.ScaleX = OverlayScale.ScaleY = 1;
         OverlayHost.Opacity = 1;
-        GrowFromTop(OverlayScale, OverlayHost);
+
+        if (content is Controls.FluidCard fc)
+        {
+            // Fluid grow: the body extends downward, shoulders stay a fixed size; longer + eased.
+            fc.BeginAnimation(Controls.FluidCard.RevealProperty, null);
+            fc.Reveal = 0;
+            fc.BeginAnimation(Controls.FluidCard.RevealProperty,
+                new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(440)) { EasingFunction = new BackEase { Amplitude = 0.18, EasingMode = EasingMode.EaseOut } });
+            OverlayHost.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(170)));
+        }
+        else
+        {
+            GrowFromTop(OverlayScale, OverlayHost);
+        }
     }
 
     private void OpenOverlayCentered(FrameworkElement content, double width, bool focusable = false)
@@ -896,6 +909,7 @@ public partial class MainWindow : Window, IWidgetHost
     /// or a plain rounded card otherwise.</summary>
     private FrameworkElement Card(UIElement content, Thickness padding)
     {
+        // Vector-drawn translucent material that matches the theme (clean anti-aliased corners).
         var fill = new SolidColorBrush(_dropMaterial); fill.Freeze();
         Brush? stroke = _dropOutline is Color oc ? new SolidColorBrush(oc) : null;
         stroke?.Freeze();
@@ -933,10 +947,23 @@ public partial class MainWindow : Window, IWidgetHost
         _overlayClosing = true;
         _overlayHideTimer.Stop();
         ScrimPopup.IsOpen = false;
-        var sy = new DoubleAnimation(0, TimeSpan.FromMilliseconds(150)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
-        sy.Completed += (_, _) => { if (_overlayClosing) FinishCloseOverlay(); };
-        OverlayScale.BeginAnimation(ScaleTransform.ScaleYProperty, sy);
-        OverlayHost.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(140)));
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+        if (OverlayHost.Content is Controls.FluidCard fc)
+        {
+            // Shrink the body back into the bar (bevels stay fixed).
+            var ra = new DoubleAnimation(0, TimeSpan.FromMilliseconds(200)) { EasingFunction = ease };
+            ra.Completed += (_, _) => { if (_overlayClosing) FinishCloseOverlay(); };
+            fc.BeginAnimation(Controls.FluidCard.RevealProperty, ra);
+            OverlayHost.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(180)));
+        }
+        else
+        {
+            var sy = new DoubleAnimation(0, TimeSpan.FromMilliseconds(150)) { EasingFunction = ease };
+            sy.Completed += (_, _) => { if (_overlayClosing) FinishCloseOverlay(); };
+            OverlayScale.BeginAnimation(ScaleTransform.ScaleYProperty, sy);
+            OverlayHost.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(140)));
+        }
     }
 
     private void FinishCloseOverlay()
