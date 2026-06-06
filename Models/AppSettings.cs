@@ -99,6 +99,12 @@ public sealed class AppSettings
     /// <summary>Visual theme for the widgets.</summary>
     public LintelTheme Theme { get; set; } = LintelTheme.Squircles;
 
+    /// <summary>Open widget dropdowns on hover (true) or on click (false).</summary>
+    public bool OpenOnHover { get; set; } = true;
+
+    /// <summary>In Dynamic mode, hold the cursor at the top edge this long to reveal the bar over a fullscreen app.</summary>
+    public int DynamicRevealHoldMs { get; set; } = 350;
+
     // ----------------------------------------------------------------------
 
     [JsonIgnore]

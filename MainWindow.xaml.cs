@@ -36,7 +36,7 @@ public partial class MainWindow : Window, IWidgetHost
 
     private readonly DispatcherTimer _tick;     // visibility + foreground polling
     private readonly DispatcherTimer _clock;    // 1s content refresh
-    private readonly DispatcherTimer _graphHideTimer;
+    private readonly DispatcherTimer _overlayHideTimer;
 
     private double _scaleX = 1, _scaleY = 1;
     private RECT _monitorBounds;
@@ -59,9 +59,11 @@ public partial class MainWindow : Window, IWidgetHost
     private Size _dragSize;           // grabbed widget size
     private System.Windows.Shapes.Rectangle? _dropIndicator; // predictive landing outline
 
-    // graph hover state
-    private Metric? _graphMetric;
-    private WidgetView? _graphOwner;
+    // dropdown / hover state
+    private WidgetView? _overlayOwner;   // widget that opened the current dropdown
+    private bool _overlayHover;          // opened via hover (so it closes on leave)
+    private bool _overlayClosing;
+    private Action? _overlayUpdate;      // live-refresh callback for the open dropdown
 
     public MainWindow(AppSettings settings)
     {
@@ -74,12 +76,16 @@ public partial class MainWindow : Window, IWidgetHost
         _clock = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
         _clock.Tick += (_, _) => RefreshDynamicWidgets();
 
-        _graphHideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(140) };
-        _graphHideTimer.Tick += (_, _) => CloseGraph();
+        _overlayHideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
+        _overlayHideTimer.Tick += (_, _) => { _overlayHideTimer.Stop(); if (_overlayHover) CloseOverlay(); };
 
         MouseMove += OnWindowMouseMove;
         PreviewMouseLeftButtonUp += OnWindowMouseUp;
         MouseRightButtonUp += OnBarRightClick;
+
+        // Keep a hover-opened dropdown alive while the cursor is over it.
+        OverlayHost.MouseEnter += (_, _) => _overlayHideTimer.Stop();
+        OverlayHost.MouseLeave += (_, _) => { if (_overlayHover) { _overlayHideTimer.Stop(); _overlayHideTimer.Start(); } };
     }
 
     // =========================================================== IWidgetHost
@@ -93,6 +99,34 @@ public partial class MainWindow : Window, IWidgetHost
     public void OnModeClicked() => CycleMode();
     public void OnSettingsClicked() => OpenSettings();
 
+    public bool OpenOnHover => _settings.OpenOnHover;
+
+    public bool HasDropdown(WidgetView view) => view.Descriptor.Kind
+        is WidgetKind.Gauge or WidgetKind.Load or WidgetKind.Media;
+
+    public void OpenWidgetDropdown(WidgetView view, bool hover)
+    {
+        _overlayHideTimer.Stop();
+        if (ReferenceEquals(_overlayOwner, view) && OverlayPopup.IsOpen && !_overlayClosing) return;
+        _overlayOwner = view;
+        _pendingHover = hover;
+        switch (view.Descriptor.Kind)
+        {
+            case WidgetKind.Gauge: ShowGraph(view, GetMetric(view.Key)); break;
+            case WidgetKind.Load: ShowResourcePanel(view); break;
+            case WidgetKind.Media: ShowMediaPanel(view); break;
+        }
+    }
+
+    public void WidgetHoverLeft(WidgetView view)
+    {
+        if (_overlayHover && ReferenceEquals(_overlayOwner, view))
+        {
+            _overlayHideTimer.Stop();
+            _overlayHideTimer.Start();
+        }
+    }
+
     // =========================================================== lifecycle
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -105,7 +139,6 @@ public partial class MainWindow : Window, IWidgetHost
 
         _appBar = new AppBarManager(_hwnd);
         _perf = new PerfMonitor(Dispatcher);
-        _perf.Updated += () => { if (GraphPopup.IsOpen && _graphMetric != null) UpdateGraph(_graphMetric); };
 
         _media = new MediaService(Dispatcher);
         _media.Changed += () => { foreach (var w in _allWidgets) if (w.Descriptor.Kind == WidgetKind.Media) w.UpdateMedia(); };
@@ -135,6 +168,14 @@ public partial class MainWindow : Window, IWidgetHost
     private Color _backdropTint;
 
     private bool _fluid;
+    private Color _dropMaterial = Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23);
+    private Color? _dropOutline;
+
+    private static Color ParseColor(string hex, Color fallback, byte minAlpha = 0)
+    {
+        try { var c = (Color)ColorConverter.ConvertFromString(hex); if (c.A < minAlpha) c.A = minAlpha; return c; }
+        catch { return fallback; }
+    }
 
     public void ApplySettings()
     {
@@ -142,6 +183,14 @@ public partial class MainWindow : Window, IWidgetHost
         _backdrop = theme.Acrylic;
         _backdropTint = theme.AcrylicTint;
         _fluid = theme.FluidDropdowns;
+
+        // Dropdowns share the bar's material + continue its outline.
+        _dropMaterial = theme.SeparatedZones ? theme.ZoneBackground
+            : theme.Acrylic ? Color.FromArgb(0xF2, theme.AcrylicTint.R, theme.AcrylicTint.G, theme.AcrylicTint.B)
+            : ParseColor(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E), 0xF6);
+        _dropOutline = theme.BottomHighlight ? Color.FromArgb(0x2A, 0xFF, 0xFF, 0xFF)
+            : theme.SeparatedZones ? Color.FromArgb(0x1E, 0xFF, 0xFF, 0xFF)
+            : (Color?)null;
 
         // Islands: transparent bar with floating zone pills (gaps show desktop).
         // Acrylic: near-transparent (hit-testable) so the blur shows. Else: solid colour.
@@ -314,7 +363,7 @@ public partial class MainWindow : Window, IWidgetHost
     {
         ParentPanel(view)?.Children.Remove(view);
         _allWidgets.Remove(view);
-        if (ReferenceEquals(view, _graphOwner)) CloseGraph();
+        if (ReferenceEquals(view, _overlayOwner)) CloseOverlay();
         UpdatePerfActive();
         PersistLayout();
     }
@@ -404,13 +453,32 @@ public partial class MainWindow : Window, IWidgetHost
     private bool EvaluateDynamic(DateTime now, ForegroundState fg)
     {
         bool obstructed = fg.IsFullscreen || fg.OverlapsBar;
-        if (obstructed)
+        if (!obstructed) { _hideAt = null; _hotSince = null; return true; }
+
+        // Obstructed: stay hidden, but let the user peek the bar by holding the cursor at the
+        // very top edge (like Auto-Hide), then re-hide once they leave.
+        if (GetCursorPos(out var p))
         {
-            _hideAt ??= now.AddMilliseconds(_settings.DynamicHideDelayMs);
-            return now < _hideAt;
+            bool xInRange = p.X >= _monitorBounds.Left && p.X < _monitorBounds.Right;
+            bool atTopEdge = xInRange && p.Y <= _monitorBounds.Top + _settings.TriggerZonePx;
+            bool overBar = xInRange && p.Y >= _monitorBounds.Top && p.Y <= _monitorBounds.Top + _barHeightPx;
+
+            if (atTopEdge) _hotSince ??= now;
+            else if (!overBar) _hotSince = null;
+
+            if (_shown)
+            {
+                if (overBar || atTopEdge) { _hideAt = null; return true; }
+                _hideAt ??= now.AddMilliseconds(_settings.HideDelayMs);
+                return now < _hideAt;
+            }
+            if (_hotSince != null && (now - _hotSince.Value).TotalMilliseconds >= _settings.DynamicRevealHoldMs)
+            {
+                _hideAt = null;
+                return true;
+            }
         }
-        _hideAt = null;
-        return true;
+        return false;
     }
 
     private void ReassertTopmost() =>
@@ -451,48 +519,78 @@ public partial class MainWindow : Window, IWidgetHost
         if (updated != ex) SetWindowLong(_hwnd, GWL_EXSTYLE, updated);
     }
 
-    // =========================================================== graph hover
+    // =========================================================== gauge graph dropdown
+
+    private void OnOverlayPerfUpdate() => _overlayUpdate?.Invoke();
+
+    private static TextBlock StatTb() => new() { Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 10.5 };
 
     public void ShowGraph(WidgetView view, Metric metric)
     {
-        _graphHideTimer.Stop();
-        if (ReferenceEquals(_graphOwner, view) && GraphPopup.IsOpen) return;
+        var panel = new StackPanel { Width = 234 };
 
-        _graphOwner = view;
-        _graphMetric = metric;
-        GraphTitle.Text = metric.Name.ToUpperInvariant();
-        GraphView.Kind = Widgets.MetricStyle.For(metric.Key).Graph;
-        GraphPopup.PlacementTarget = view;
-        GraphPopup.VerticalOffset = _fluid ? 1 : 6;
-        UpdateGraph(metric);
-        LoadTopProcesses(metric.Key);
+        var head = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 0, 0, 8) };
+        var title = new TextBlock { Text = metric.Name.ToUpperInvariant(), Foreground = new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB5)), FontSize = 11, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        var valueTb = new TextBlock { FontSize = 18, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center };
+        DockPanel.SetDock(title, Dock.Left); DockPanel.SetDock(valueTb, Dock.Right);
+        head.Children.Add(title); head.Children.Add(valueTb);
+        panel.Children.Add(head);
 
-        GraphPopup.IsOpen = true;
-        GrowFromTop(GraphScale, GraphCard);
+        var graph = new Controls.HistoryGraph { Height = 92, Kind = Widgets.MetricStyle.For(metric.Key).Graph };
+        panel.Children.Add(graph);
+
+        var stats = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 8, 0, 0) };
+        var minTb = StatTb(); var avgTb = StatTb(); var maxTb = StatTb();
+        avgTb.Margin = new Thickness(14, 0, 0, 0);
+        DockPanel.SetDock(minTb, Dock.Left); DockPanel.SetDock(avgTb, Dock.Left); DockPanel.SetDock(maxTb, Dock.Right);
+        stats.Children.Add(minTb); stats.Children.Add(avgTb); stats.Children.Add(maxTb);
+        panel.Children.Add(stats);
+
+        panel.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF)), Margin = new Thickness(0, 10, 0, 8) });
+        var procTitle = new TextBlock { Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 10, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 6) };
+        panel.Children.Add(procTitle);
+        var procs = new StackPanel();
+        panel.Children.Add(procs);
+
+        void Upd()
+        {
+            var d = metric.Snapshot();
+            graph.SetData(d);
+            valueTb.Text = metric.Text;
+            valueTb.Foreground = new SolidColorBrush(RingGauge.ColorFor(metric.Percent));
+            if (d.Length > 0) { minTb.Text = $"min {d.Min():0}%"; avgTb.Text = $"avg {d.Average():0}%"; maxTb.Text = $"max {d.Max():0}%"; }
+        }
+        Upd();
+        _overlayUpdate = Upd;
+        _perf!.Updated += OnOverlayPerfUpdate;
+        _overlayClosed = () => { _perf!.Updated -= OnOverlayPerfUpdate; _overlayUpdate = null; };
+
+        LoadTopProcessesInto(metric.Key, procTitle, procs);
+
+        var card = Card(panel, new Thickness(14, 11, 14, 11));
+        double off = view.TranslatePoint(new Point(0, 0), BarRoot).X - 6;
+        off = Math.Clamp(off, 8, Math.Max(8, BarRoot.ActualWidth - 280));
+        OpenOverlay(card, BarRoot, off);
     }
 
-    private void LoadTopProcesses(string key)
+    private void LoadTopProcessesInto(string key, TextBlock titleTb, StackPanel procs)
     {
-        GraphProcTitle.Text = key == "ram" ? "TOP MEMORY USERS"
+        titleTb.Text = key == "ram" ? "TOP MEMORY USERS"
             : key == "battery" ? "TOP POWER USERS"
             : key == "net" ? "TOP I/O USERS"
             : $"TOP {WidgetCatalog.Find(key)?.Name.ToUpperInvariant()} USERS";
-        GraphProcs.Children.Clear();
-        GraphProcs.Children.Add(new TextBlock { Text = "…", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 11.5 });
+        procs.Children.Clear();
+        procs.Children.Add(new TextBlock { Text = "…", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 11.5 });
 
-        var owner = _graphOwner;
+        var owner = _overlayOwner;
         _ = ProcessUsage.TopAsync(key, 4).ContinueWith(t =>
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                if (!GraphPopup.IsOpen || !ReferenceEquals(owner, _graphOwner)) return;
-                GraphProcs.Children.Clear();
+                if (!OverlayPopup.IsOpen || !ReferenceEquals(owner, _overlayOwner)) return;
+                procs.Children.Clear();
                 var list = t.IsCompletedSuccessfully ? t.Result : new List<ProcUsage>();
-                if (list.Count == 0)
-                {
-                    GraphProcs.Children.Add(new TextBlock { Text = "No data", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 11.5 });
-                    return;
-                }
+                if (list.Count == 0) { procs.Children.Add(new TextBlock { Text = "No data", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 11.5 }); return; }
                 foreach (var p in list)
                 {
                     var dp = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 1.5, 0, 1.5) };
@@ -502,39 +600,10 @@ public partial class MainWindow : Window, IWidgetHost
                     DockPanel.SetDock(val, Dock.Right);
                     dp.Children.Add(val);
                     dp.Children.Add(name);
-                    GraphProcs.Children.Add(dp);
+                    procs.Children.Add(dp);
                 }
             }));
         });
-    }
-
-    public void HideGraph(WidgetView view)
-    {
-        if (!ReferenceEquals(_graphOwner, view)) return;
-        _graphHideTimer.Stop();
-        _graphHideTimer.Start();
-    }
-
-    private void CloseGraph()
-    {
-        _graphHideTimer.Stop();
-        GraphPopup.IsOpen = false;
-        _graphOwner = null;
-        _graphMetric = null;
-    }
-
-    private void UpdateGraph(Metric metric)
-    {
-        var data = metric.Snapshot();
-        GraphView.SetData(data);
-        GraphValue.Text = metric.Text;
-        GraphValue.Foreground = new SolidColorBrush(RingGauge.ColorFor(metric.Percent));
-        if (data.Length > 0)
-        {
-            GraphMin.Text = $"min {data.Min():0}%";
-            GraphAvg.Text = $"avg {data.Average():0}%";
-            GraphMax.Text = $"max {data.Max():0}%";
-        }
     }
 
     // =========================================================== customize mode
@@ -548,7 +617,7 @@ public partial class MainWindow : Window, IWidgetHost
 
         if (on)
         {
-            CloseGraph();
+            CloseOverlay();
             PlusPopup.PlacementTarget = BarGrid;
             PlusPopup.HorizontalOffset = (BarGrid.ActualWidth / 2.0) - 110; // centre the pill under the bar
             PlusPopup.IsOpen = true;
@@ -773,15 +842,24 @@ public partial class MainWindow : Window, IWidgetHost
     }
 
     private bool _overlayFocusable;
+    private bool _pendingHover;
 
     private void OpenOverlay(UIElement content, UIElement target, double horizontalOffset, bool focusable = false)
     {
+        if (_overlayClosing) FinishCloseOverlay();   // snap any in-flight close
+
+        _overlayHover = _pendingHover;
+        if (!_pendingHover) _overlayOwner = null;
+        _pendingHover = false;
+        _overlayHideTimer.Stop();
+
         OverlayHost.Content = content;
         OverlayPopup.PlacementTarget = target;
         OverlayPopup.Placement = PlacementMode.Bottom;
         OverlayPopup.HorizontalOffset = horizontalOffset;
-        OverlayPopup.VerticalOffset = _fluid ? -1 : 6;
-        ShowScrim();
+        OverlayPopup.VerticalOffset = _fluid ? -1 : 4;
+
+        if (!_overlayHover) ShowScrim();   // hover dropdowns are non-modal (no click-catcher)
         OverlayPopup.IsOpen = true;
         _forceOpen = true;
 
@@ -791,13 +869,14 @@ public partial class MainWindow : Window, IWidgetHost
         {
             int ex = GetWindowLong(_hwnd, GWL_EXSTYLE);
             SetWindowLong(_hwnd, GWL_EXSTYLE, ex & ~WS_EX_NOACTIVATE & ~WS_EX_TRANSPARENT);
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                SetForegroundWindow(_hwnd);
-                Activate();
-            }), DispatcherPriority.Input);
+            Dispatcher.BeginInvoke(new Action(() => { SetForegroundWindow(_hwnd); Activate(); }), DispatcherPriority.Input);
         }
 
+        OverlayScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        OverlayScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        OverlayHost.BeginAnimation(OpacityProperty, null);
+        OverlayScale.ScaleX = OverlayScale.ScaleY = 1;
+        OverlayHost.Opacity = 1;
         GrowFromTop(OverlayScale, OverlayHost);
     }
 
@@ -812,11 +891,22 @@ public partial class MainWindow : Window, IWidgetHost
     /// or a plain rounded card otherwise.</summary>
     private FrameworkElement Card(UIElement content, Thickness padding)
     {
-        var dark = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)); dark.Freeze();
+        var fill = new SolidColorBrush(_dropMaterial); fill.Freeze();
+        Brush? stroke = _dropOutline is Color oc ? new SolidColorBrush(oc) : null;
+        stroke?.Freeze();
         var shadow = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black };
         if (_fluid)
-            return new Controls.FluidCard { Fill = dark, BodyRadius = 16, Shoulder = 22, ContentPadding = padding, Child = content, Effect = shadow };
-        return new Border { Background = dark, CornerRadius = new CornerRadius(14), Padding = padding, Child = content, Effect = shadow };
+            return new Controls.FluidCard { Fill = fill, Stroke = stroke, StrokeThickness = 1.2, BodyRadius = 16, Shoulder = 22, ContentPadding = padding, Child = content, Effect = shadow };
+        return new Border
+        {
+            Background = fill,
+            BorderBrush = stroke,
+            BorderThickness = stroke != null ? new Thickness(1) : new Thickness(0),
+            CornerRadius = new CornerRadius(14),
+            Padding = padding,
+            Child = content,
+            Effect = shadow
+        };
     }
 
     private void RecenterOverlay(double width) =>
@@ -826,9 +916,26 @@ public partial class MainWindow : Window, IWidgetHost
 
     private void CloseOverlay()
     {
+        if (!OverlayPopup.IsOpen) { FinishCloseOverlay(); return; }
+        _overlayClosing = true;
+        _overlayHideTimer.Stop();
+        ScrimPopup.IsOpen = false;
+        var sy = new DoubleAnimation(0, TimeSpan.FromMilliseconds(150)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
+        sy.Completed += (_, _) => { if (_overlayClosing) FinishCloseOverlay(); };
+        OverlayScale.BeginAnimation(ScaleTransform.ScaleYProperty, sy);
+        OverlayHost.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(140)));
+    }
+
+    private void FinishCloseOverlay()
+    {
+        _overlayClosing = false;
         OverlayPopup.IsOpen = false;
         ScrimPopup.IsOpen = false;
+        OverlayScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        OverlayHost.BeginAnimation(OpacityProperty, null);
+        OverlayScale.ScaleY = 1; OverlayHost.Opacity = 1;
         OverlayHost.Content = null;
+        _overlayOwner = null; _overlayHover = false;
         var cb = _overlayClosed; _overlayClosed = null;
         cb?.Invoke();
         if (_overlayFocusable && _hwnd != IntPtr.Zero)

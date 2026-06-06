@@ -12,6 +12,8 @@ namespace Lintel.Controls;
 public sealed class FluidCard : Decorator
 {
     public Brush Fill { get; set; } = Brushes.Black;
+    public Brush? Stroke { get; set; }               // continues the bar's outline
+    public double StrokeThickness { get; set; } = 1;
     public double BodyRadius { get; set; } = 16;     // bottom corners
     public double Shoulder { get; set; } = 20;       // flare connecting to the bar
     public Thickness ContentPadding { get; set; } = new(14);
@@ -45,10 +47,12 @@ public sealed class FluidCard : Decorator
         double sh = Shoulder, rb = Math.Min(BodyRadius, (w - 2 * sh) / 2);
         double L = sh, R = w - sh;
 
+        // Open figure (top edge left undrawn so it merges with the bar). Fill closes it
+        // implicitly; the pen only strokes the shoulders/walls/bottom — continuing the bar's edge.
         var geo = new StreamGeometry();
         using (var c = geo.Open())
         {
-            c.BeginFigure(new Point(0, 0), true, true);                                                              // top-left tip (at the bar)
+            c.BeginFigure(new Point(0, 0), true, false);
             c.ArcTo(new Point(L, sh), new Size(sh, sh), 0, false, SweepDirection.Clockwise, true, false);            // left shoulder (flares down)
             c.LineTo(new Point(L, h - rb), true, false);                                                            // left wall
             c.ArcTo(new Point(L + rb, h), new Size(rb, rb), 0, false, SweepDirection.Counterclockwise, true, false);// bottom-left
@@ -56,9 +60,10 @@ public sealed class FluidCard : Decorator
             c.ArcTo(new Point(R, h - rb), new Size(rb, rb), 0, false, SweepDirection.Counterclockwise, true, false);// bottom-right
             c.LineTo(new Point(R, sh), true, false);                                                                // right wall
             c.ArcTo(new Point(w, 0), new Size(sh, sh), 0, false, SweepDirection.Clockwise, true, false);            // right shoulder
-            // implicit close: straight top edge (along the bar) from (w,0) back to (0,0)
         }
         geo.Freeze();
-        dc.DrawGeometry(Fill, null, geo);
+        Pen? pen = Stroke != null ? new Pen(Stroke, StrokeThickness) { LineJoin = PenLineJoin.Round } : null;
+        pen?.Freeze();
+        dc.DrawGeometry(Fill, pen, geo);
     }
 }

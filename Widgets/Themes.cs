@@ -55,7 +55,7 @@ public static class Themes
             BottomHighlight = false,
             SeparatedZones = true,
             ZoneBackground = Color.FromArgb(0xE6, 0x1C, 0x1C, 0x1E),
-            FluidDropdowns = true
+            FluidDropdowns = false   // connected dropdown clips against the floating pills
         },
         _ => new ThemeDef
         {

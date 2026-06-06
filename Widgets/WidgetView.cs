@@ -411,14 +411,14 @@ public sealed class WidgetView : Border
     private void OnMouseEnter(object sender, MouseEventArgs e)
     {
         Background = _hoverBg;
-        if (Descriptor.Kind == WidgetKind.Gauge && _metric != null && !_host.Customizing)
-            _host.ShowGraph(this, _metric);
+        if (!_host.Customizing && _host.OpenOnHover && _host.HasDropdown(this))
+            _host.OpenWidgetDropdown(this, hover: true);
     }
 
     private void OnMouseLeave(object sender, MouseEventArgs e)
     {
         Background = _idleBg;
-        if (Descriptor.Kind == WidgetKind.Gauge) _host.HideGraph(this);
+        if (_host.HasDropdown(this)) _host.WidgetHoverLeft(this);
     }
 
     private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -448,8 +448,11 @@ public sealed class WidgetView : Border
             case WidgetKind.Mode: _host.OnModeClicked(); UpdateModeText(); break;
             case WidgetKind.Settings: _host.OnSettingsClicked(); break;
             case WidgetKind.Note: _host.ShowNote(this); break;
-            case WidgetKind.Load: _host.ShowResourcePanel(this); break;
-            case WidgetKind.Media: _host.ShowMediaPanel(this); break;
+            case WidgetKind.Gauge:
+            case WidgetKind.Load:
+            case WidgetKind.Media:
+                if (!_host.OpenOnHover) _host.OpenWidgetDropdown(this, hover: false);
+                break;
         }
     }
 

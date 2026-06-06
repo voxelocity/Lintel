@@ -51,6 +51,7 @@ public partial class SettingsPanel : UserControl
 
         // quick
         QBarHeight.Text = _settings.BarHeight.ToString(CultureInfo.InvariantCulture);
+        QHover.IsChecked = _settings.OpenOnHover;
         QClock24.IsChecked = _settings.Use24HourClock;
         QStartup.IsChecked = _settings.LaunchAtStartup;
 
@@ -73,6 +74,7 @@ public partial class SettingsPanel : UserControl
     {
         _settings.Mode = (VisibilityMode)_selMode;
         _settings.BarHeight = ParseD(QBarHeight.Text, _settings.BarHeight);
+        _settings.OpenOnHover = QHover.IsChecked == true;
         _settings.Use24HourClock = QClock24.IsChecked == true;
         _settings.LaunchAtStartup = QStartup.IsChecked == true;
     }

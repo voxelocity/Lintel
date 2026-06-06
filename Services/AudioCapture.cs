@@ -89,7 +89,10 @@ public sealed class AudioCapture : IDisposable
         }
     }
 
-    /// <summary>Resample the spectrum into <paramref name="bars"/> log-spaced bands (0..1).</summary>
+    private float _runningMax = 1e-4f;
+
+    /// <summary>Resample the spectrum into <paramref name="bars"/> log-spaced bands (0..1),
+    /// auto-normalised to the current loudness so it stays sensitive at any volume.</summary>
     public float[]? Sample(int bars)
     {
         if (!_running) return null;
@@ -97,7 +100,9 @@ public sealed class AudioCapture : IDisposable
         lock (_lock)
         {
             int bins = FftLen / 2;
-            int maxBin = (int)(bins * 0.6);
+            int maxBin = (int)(bins * 0.55);
+            float frameMax = 1e-4f;
+            var raw = new float[bars];
             for (int b = 0; b < bars; b++)
             {
                 double f0 = Math.Pow(maxBin, b / (double)bars);
@@ -106,10 +111,17 @@ public sealed class AudioCapture : IDisposable
                 int i1 = Math.Clamp((int)Math.Ceiling(f1), i0 + 1, maxBin);
                 float sum = 0;
                 for (int i = i0; i < i1; i++) sum += _spectrum[i];
-                float avg = sum / (i1 - i0);
-                double v = Math.Log10(1 + avg * 55) * 0.55;
-                outp[b] = (float)Math.Clamp(v, 0, 1);
+                // weight higher bands up (they're quieter) so the whole bar moves
+                float avg = sum / (i1 - i0) * (1f + b / (float)bars * 1.8f);
+                raw[b] = avg;
+                if (avg > frameMax) frameMax = avg;
             }
+
+            // adaptive ceiling: rise instantly to peaks, decay slowly
+            _runningMax = Math.Max(frameMax, _runningMax * 0.994f);
+            float norm = Math.Max(_runningMax, 1e-4f);
+            for (int b = 0; b < bars; b++)
+                outp[b] = (float)Math.Clamp(Math.Pow(raw[b] / norm, 0.55), 0, 1); // gamma lifts low values
         }
         return outp;
     }

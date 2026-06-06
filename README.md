@@ -28,7 +28,9 @@ Switch from the customize pill (theme button) or **Advanced settings → Theme**
 - **Islands** — each zone (left / center / right) is its own floating rounded bar with gaps between them, and fluid dropdowns.
 - **Resin** — like Power, but with fluid Dynamic-Island-style dropdowns that spring out of the bar.
 
-**Hover any performance gauge** and a card grows out from under it with a **history graph whose style matches the metric** (smooth area for CPU/RAM/GPU, bars for Disk/Network, a line for Battery), live min / avg / max, **and the top processes using that resource**.
+**Dropdowns open on hover by default** (toggle to click in Quick Settings). A gauge shows a **history graph whose style matches the metric** (smooth area for CPU/RAM/GPU, bars for Disk/Network, a line for Battery), live min / avg / max, **and the top processes using that resource**. Dropdowns grow open and shrink closed; in **Resin** they're drawn as one shape stretching out of the bar.
+
+**Dynamic-mode peek:** when the bar is hidden under a fullscreen/overlapping app, hold the cursor at the very top edge briefly to reveal it.
 
 ### Customize mode
 

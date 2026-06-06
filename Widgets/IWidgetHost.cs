@@ -19,10 +19,17 @@ public interface IWidgetHost
     void OnSettingsClicked();
     void RemoveWidget(WidgetView view);
 
-    void ShowGraph(WidgetView view, Metric metric);
-    void HideGraph(WidgetView view);
-
     void BeginWidgetDrag(WidgetView view, MouseButtonEventArgs e);
+
+    // Dropdowns
+    /// <summary>True if dropdowns open on hover (vs click).</summary>
+    bool OpenOnHover { get; }
+    /// <summary>True for widget kinds that show an info dropdown (gauge / load / media).</summary>
+    bool HasDropdown(WidgetView view);
+    /// <summary>Open the widget's dropdown (graph / resource panel / media player).</summary>
+    void OpenWidgetDropdown(WidgetView view, bool hover);
+    /// <summary>Cursor left a hover-opened widget.</summary>
+    void WidgetHoverLeft(WidgetView view);
 
     // Interactive widgets
     void ShowNote(WidgetView view);
@@ -30,12 +37,5 @@ public interface IWidgetHost
     int OpenWindowCount();
     void SwitchWorkspace(int direction);
 
-    /// <summary>Drop-down with every resource graph (for the compact System Load widget).</summary>
-    void ShowResourcePanel(WidgetView view);
-
-    /// <summary>Now-playing media (cover, title, controls) for the Media widget.</summary>
     MediaService Media { get; }
-
-    /// <summary>Expanded media player drop-down.</summary>
-    void ShowMediaPanel(WidgetView view);
 }

@@ -129,7 +129,8 @@
                     <TextBox Grid.Column="1" x:Name="QBarHeight"/>
                 </Grid>
 
-                <CheckBox x:Name="QClock24" Content="Use 24-hour clock" Margin="0,12,0,0"/>
+                <CheckBox x:Name="QHover" Content="Open dropdowns on hover" Margin="0,12,0,0"/>
+                <CheckBox x:Name="QClock24" Content="Use 24-hour clock"/>
                 <CheckBox x:Name="QStartup" Content="Launch at Windows startup"/>
 
                 <Button Style="{StaticResource Link}" Click="ShowAdvanced_Click" Margin="0,8,0,0">
