@@ -186,11 +186,12 @@ public partial class MainWindow : Window, IWidgetHost
         _backdrop = theme.Acrylic;
         _backdropTint = theme.AcrylicTint;
         _fluid = theme.FluidDropdowns;
-        _shoulder = _fluid && !_backdrop;   // connected shoulder shape only when not blurred
+        _shoulder = _fluid;   // all fluid themes get the connected shoulder shape
 
-        // Dropdowns share the bar's material + continue its outline.
+        // Dropdowns share the bar's material. Acrylic themes use a translucent tint so the
+        // dropdown reads like the bar (vector-drawn, so corners stay clean).
         _dropMaterial = theme.SeparatedZones ? theme.ZoneBackground
-            : theme.Acrylic ? Color.FromArgb(0xF2, theme.AcrylicTint.R, theme.AcrylicTint.G, theme.AcrylicTint.B)
+            : theme.Acrylic ? Color.FromArgb(0xDC, theme.AcrylicTint.R, theme.AcrylicTint.G, theme.AcrylicTint.B)
             : ParseColor(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E), 0xF6);
         _dropOutline = theme.BottomHighlight ? Color.FromArgb(0x2A, 0xFF, 0xFF, 0xFF)
             : theme.SeparatedZones ? Color.FromArgb(0x1E, 0xFF, 0xFF, 0xFF)
@@ -858,7 +859,6 @@ public partial class MainWindow : Window, IWidgetHost
         _overlayHideTimer.Stop();
 
         OverlayHost.Content = content;
-        OverlayMargin.Margin = _backdrop ? new Thickness(0) : new Thickness(10, 0, 10, 12);
         OverlayPopup.PlacementTarget = target;
         OverlayPopup.Placement = PlacementMode.Bottom;
         OverlayPopup.HorizontalOffset = horizontalOffset;
@@ -867,13 +867,6 @@ public partial class MainWindow : Window, IWidgetHost
         if (!_overlayHover) ShowScrim();   // hover dropdowns are non-modal (no click-catcher)
         OverlayPopup.IsOpen = true;
         _forceOpen = true;
-
-        // Match the bar's material: blur the dropdown window for acrylic themes.
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            if (PresentationSource.FromVisual(OverlayHost) is System.Windows.Interop.HwndSource src)
-                NativeMethods.SetAcrylic(src.Handle, _backdrop, _backdropTint);
-        }), DispatcherPriority.Loaded);
 
         // Text-editing overlays (settings, note) need the window to accept keyboard focus.
         _overlayFocusable = focusable;
@@ -903,34 +896,27 @@ public partial class MainWindow : Window, IWidgetHost
     /// or a plain rounded card otherwise.</summary>
     private FrameworkElement Card(UIElement content, Thickness padding)
     {
+        var fill = new SolidColorBrush(_dropMaterial); fill.Freeze();
         Brush? stroke = _dropOutline is Color oc ? new SolidColorBrush(oc) : null;
         stroke?.Freeze();
+        var shadow = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black };
 
         if (_shoulder)
-        {
-            // Solid connected shape that stretches out of the bar (Mond).
-            var fill = new SolidColorBrush(_dropMaterial); fill.Freeze();
             return new Controls.FluidCard
             {
                 Fill = fill, Stroke = stroke, StrokeThickness = 1.2, BodyRadius = 16, Shoulder = 22,
-                ContentPadding = padding, Child = content,
-                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black }
+                ContentPadding = padding, Child = content, Effect = shadow
             };
-        }
 
-        // Acrylic themes: near-transparent so the window blur (applied after open) shows
-        // through — same material as the bar. Solid themes: the bar colour.
-        var bg = _backdrop ? new SolidColorBrush(Color.FromArgb(0x01, 0, 0, 0)) : new SolidColorBrush(_dropMaterial);
-        bg.Freeze();
         return new Border
         {
-            Background = bg,
+            Background = fill,
             BorderBrush = stroke,
             BorderThickness = stroke != null ? new Thickness(1) : new Thickness(0),
-            CornerRadius = new CornerRadius(12),
+            CornerRadius = new CornerRadius(14),
             Padding = padding,
             Child = content,
-            Effect = _backdrop ? null : new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black }
+            Effect = shadow
         };
     }
 
