@@ -32,6 +32,7 @@ public partial class MainWindow : Window, IWidgetHost
     private AppBarManager? _appBar;
     private PerfMonitor? _perf;
     private MediaService? _media;
+    private AudioCapture? _audio;
 
     private readonly DispatcherTimer _tick;     // visibility + foreground polling
     private readonly DispatcherTimer _clock;    // 1s content refresh
@@ -109,6 +110,7 @@ public partial class MainWindow : Window, IWidgetHost
         _media = new MediaService(Dispatcher);
         _media.Changed += () => { foreach (var w in _allWidgets) if (w.Descriptor.Kind == WidgetKind.Media) w.UpdateMedia(); };
         _media.Start();
+        _audio = new AudioCapture();
 
         ApplySettings();
         ApplyMode(initial: true);
@@ -122,6 +124,7 @@ public partial class MainWindow : Window, IWidgetHost
         _tick.Stop();
         _clock.Stop();
         _perf?.Dispose();
+        _audio?.Dispose();
         _appBar?.Release();
         base.OnClosed(e);
     }
@@ -162,14 +165,13 @@ public partial class MainWindow : Window, IWidgetHost
         var zones = new[] { (ZoneLeft, PanelLeft), (ZoneCenter, PanelCenter), (ZoneRight, PanelRight) };
         if (theme.SeparatedZones)
         {
-            double pillH = Math.Max(20, _settings.BarHeight - 6);
             var bg = new SolidColorBrush(theme.ZoneBackground); bg.Freeze();
             foreach (var (zone, panel) in zones)
             {
                 zone.Background = bg;
-                zone.CornerRadius = new CornerRadius(pillH / 2.0);
-                zone.Padding = new Thickness(8, 0, 8, 0);
-                zone.Margin = new Thickness(3, 3, 3, 3);
+                zone.CornerRadius = new CornerRadius(10);
+                zone.Padding = new Thickness(16, 0, 16, 0);
+                zone.Margin = new Thickness(4, 3, 4, 3);
                 zone.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 12, ShadowDepth = 1, Opacity = 0.35, Color = Colors.Black };
                 zone.Visibility = panel.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             }
@@ -286,6 +288,10 @@ public partial class MainWindow : Window, IWidgetHost
         if (_allWidgets.Any(w => w.Descriptor.Kind == WidgetKind.Load))
             foreach (var k in new[] { "cpu", "ram", "gpu", "disk", "net" }) keys.Add(k);
         _perf?.SetActive(keys);
+
+        // Only capture audio while a media widget is on the bar.
+        if (_allWidgets.Any(w => w.Descriptor.Kind == WidgetKind.Media)) _audio?.Start();
+        else _audio?.Stop();
     }
 
     private void RefreshDynamicWidgets()
@@ -774,7 +780,7 @@ public partial class MainWindow : Window, IWidgetHost
         OverlayPopup.PlacementTarget = target;
         OverlayPopup.Placement = PlacementMode.Bottom;
         OverlayPopup.HorizontalOffset = horizontalOffset;
-        OverlayPopup.VerticalOffset = _fluid ? 1 : 6;
+        OverlayPopup.VerticalOffset = _fluid ? -1 : 6;
         ShowScrim();
         OverlayPopup.IsOpen = true;
         _forceOpen = true;
@@ -797,8 +803,20 @@ public partial class MainWindow : Window, IWidgetHost
 
     private void OpenOverlayCentered(FrameworkElement content, double width, bool focusable = false)
     {
-        double off = (BarRoot.ActualWidth / 2.0) - (width / 2.0);
+        double extra = content is Controls.FluidCard ? 44 : 0; // fluid card flares wider than its content
+        double off = (BarRoot.ActualWidth / 2.0) - ((width + extra) / 2.0);
         OpenOverlay(content, BarRoot, off, focusable);
+    }
+
+    /// <summary>Builds a dropdown card — a fluid shape that extends from the bar (fluid themes)
+    /// or a plain rounded card otherwise.</summary>
+    private FrameworkElement Card(UIElement content, Thickness padding)
+    {
+        var dark = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)); dark.Freeze();
+        var shadow = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black };
+        if (_fluid)
+            return new Controls.FluidCard { Fill = dark, BodyRadius = 16, Shoulder = 22, ContentPadding = padding, Child = content, Effect = shadow };
+        return new Border { Background = dark, CornerRadius = new CornerRadius(14), Padding = padding, Child = content, Effect = shadow };
     }
 
     private void RecenterOverlay(double width) =>
@@ -885,14 +903,7 @@ public partial class MainWindow : Window, IWidgetHost
             stack.Children.Add(rowBorder);
         }
 
-        return new Border
-        {
-            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)),
-            CornerRadius = new CornerRadius(13),
-            Padding = new Thickness(6),
-            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black },
-            Child = stack
-        };
+        return Card(stack, new Thickness(6));
     }
 
     private void OnBarRightClick(object sender, MouseButtonEventArgs e)
@@ -977,14 +988,7 @@ public partial class MainWindow : Window, IWidgetHost
         stack.Children.Add(new TextBlock { Text = "A macOS / Linux-style top bar for Windows 11.", Foreground = new SolidColorBrush(Color.FromRgb(0xC0, 0xC0, 0xC5)), FontSize = 12.5, Margin = new Thickness(0, 6, 0, 0), TextWrapping = TextWrapping.Wrap });
         stack.Children.Add(new TextBlock { Text = "Version 1.1  ·  Dynamic widget edition", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 11, Margin = new Thickness(0, 10, 0, 0) });
 
-        var card = new Border
-        {
-            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)),
-            CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(18, 16, 18, 16),
-            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black },
-            Child = stack
-        };
+        var card = Card(stack, new Thickness(18, 16, 18, 16));
         OpenOverlayCentered(card, 336);
     }
 
@@ -1012,14 +1016,7 @@ public partial class MainWindow : Window, IWidgetHost
         panel.Children.Add(new TextBlock { Text = "QUICK NOTE", Foreground = new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)), FontSize = 10, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 0, 8) });
         panel.Children.Add(tb);
 
-        var card = new Border
-        {
-            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)),
-            CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(12),
-            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black },
-            Child = panel
-        };
+        var card = Card(panel, new Thickness(12));
 
         _overlayClosed = () => { _settings.Save(); RefreshDynamicWidgets(); };
         OpenOverlay(card, view, 0, focusable: true);
@@ -1098,14 +1095,7 @@ public partial class MainWindow : Window, IWidgetHost
             graphs.Add((metric, g, valTb));
         }
 
-        var card = new Border
-        {
-            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)),
-            CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(14, 12, 14, 8),
-            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black },
-            Child = panel
-        };
+        var card = Card(panel, new Thickness(14, 12, 14, 8));
 
         void Updater()
         {
@@ -1149,7 +1139,7 @@ public partial class MainWindow : Window, IWidgetHost
         panel.Children.Add(header);
 
         // visualizer
-        var viz = new Controls.Visualizer { Height = 34, Bars = 18, BarColor = accent, Margin = new Thickness(0, 12, 0, 10) };
+        var viz = new Controls.Visualizer { Height = 38, Bars = 34, BarColor = accent, Margin = new Thickness(0, 12, 0, 10) };
         panel.Children.Add(viz);
 
         // progress bar
@@ -1173,14 +1163,7 @@ public partial class MainWindow : Window, IWidgetHost
         controls.Children.Add(MediaCtrl(Geometry.Parse("M2,2 L9,7 L2,12 Z M11,2 L13,2 L13,12 L11,12 Z"), () => _media!.Next(), 16));
         panel.Children.Add(controls);
 
-        var card = new Border
-        {
-            Background = new SolidColorBrush(Color.FromArgb(0xF5, 0x1F, 0x1F, 0x23)),
-            CornerRadius = new CornerRadius(16),
-            Padding = new Thickness(16, 14, 16, 12),
-            Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 26, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black },
-            Child = panel
-        };
+        var card = Card(panel, new Thickness(16, 14, 16, 12));
 
         void Update()
         {
@@ -1189,7 +1172,10 @@ public partial class MainWindow : Window, IWidgetHost
             artistTb.Text = m.Artist;
             coverImg.Source = m.Cover;
             coverPh.Visibility = m.Cover == null ? Visibility.Visible : Visibility.Collapsed;
+            coverPh.Fill = new SolidColorBrush(m.Accent);
+            viz.BarColor = m.Accent;
             viz.Active = m.IsPlaying;
+            fill.Background = new SolidColorBrush(m.Accent);
             playPath.Data = m.IsPlaying
                 ? Geometry.Parse("M2,1 L5,1 L5,13 L2,13 Z M9,1 L12,1 L12,13 L9,13 Z")   // pause
                 : Geometry.Parse("M3,1 L13,7 L3,13 Z");                                   // play

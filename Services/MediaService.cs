@@ -19,6 +19,7 @@ public sealed class MediaSnapshot
     public ImageSource? Cover;
     public TimeSpan Position;
     public TimeSpan Duration;
+    public Color Accent = Color.FromRgb(0x0A, 0x84, 0xFF);
 }
 
 /// <summary>Wraps the Windows now-playing (System Media Transport Controls) session.</summary>
@@ -88,6 +89,7 @@ public sealed class MediaService
             {
                 var info = s.GetPlaybackInfo();
                 snap.IsPlaying = info.PlaybackStatus == PlaybackStatus.Playing;
+                snap.Accent = AccentFor(s.SourceAppUserModelId);
 
                 var tl = s.GetTimelineProperties();
                 snap.Position = tl.Position;
@@ -133,6 +135,21 @@ public sealed class MediaService
             return bmp;
         }
         catch { return null; }
+    }
+
+    private static Color AccentFor(string? appId)
+    {
+        var id = (appId ?? "").ToLowerInvariant();
+        if (id.Contains("spotify")) return Color.FromRgb(0x1D, 0xB9, 0x54);                 // Spotify green
+        if (id.Contains("chrome") || id.Contains("msedge") || id.Contains("edge") ||
+            id.Contains("firefox") || id.Contains("opera") || id.Contains("brave") ||
+            id.Contains("youtube")) return Color.FromRgb(0xFF, 0x00, 0x33);                 // browser / YouTube red
+        if (id.Contains("vlc")) return Color.FromRgb(0xFF, 0x88, 0x00);                     // VLC orange
+        if (id.Contains("soundcloud")) return Color.FromRgb(0xFF, 0x55, 0x00);
+        if (id.Contains("apple") || id.Contains("itunes") || id.Contains("music")) return Color.FromRgb(0xFA, 0x2D, 0x6B);
+        if (id.Contains("tidal")) return Color.FromRgb(0xFF, 0xFF, 0xFF);
+        if (id.Contains("vlc") || id.Contains("media")) return Color.FromRgb(0xFF, 0x88, 0x00);
+        return Color.FromRgb(0x0A, 0x84, 0xFF);
     }
 
     public async void TogglePlay() { try { if (_session != null) await _session.TryTogglePlayPauseAsync(); } catch { } }

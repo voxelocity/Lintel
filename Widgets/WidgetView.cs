@@ -195,7 +195,7 @@ public sealed class WidgetView : Border
         coverGrid.Children.Add(coverBorder);
         row.Children.Add(coverGrid);
 
-        _mediaViz = new Controls.Visualizer { Width = 26, Height = sz, BarColor = IconColor(Accent), Bars = 5, Margin = new Thickness(7, 0, 1, 0), VerticalAlignment = VerticalAlignment.Center };
+        _mediaViz = new Controls.Visualizer { Width = 32, Height = sz, BarColor = IconColor(Accent), Bars = 11, Margin = new Thickness(7, 0, 1, 0), VerticalAlignment = VerticalAlignment.Center };
         row.Children.Add(_mediaViz);
 
         UpdateMedia();
@@ -208,7 +208,7 @@ public sealed class WidgetView : Border
         var m = _host.Media.Current;
         _mediaCover.Source = m.Cover;
         if (_mediaPlaceholder != null) _mediaPlaceholder.Visibility = m.Cover == null ? Visibility.Visible : Visibility.Collapsed;
-        if (_mediaViz != null) _mediaViz.Active = m.IsPlaying;
+        if (_mediaViz != null) { _mediaViz.BarColor = m.Accent; _mediaViz.Active = m.IsPlaying; }
     }
 
     private UIElement BuildLoad()
