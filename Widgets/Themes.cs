@@ -55,8 +55,8 @@ public static class Themes
     public static ThemeDef For(LintelTheme theme, double squircleCorner) => theme switch
     {
         LintelTheme.Power => PowerLike(false),
-        LintelTheme.Resin => PowerLike(true),
-        LintelTheme.Mond => SquirclesLike(squircleCorner, true),
+        LintelTheme.Resin => PowerLike(false),                       // fluid dropdowns removed for now
+        LintelTheme.Mond => SquirclesLike(squircleCorner, false),    // fluid dropdowns removed for now
         LintelTheme.Islands => new ThemeDef
         {
             BubbleIdle = Color.FromArgb(0x16, 0xFF, 0xFF, 0xFF),
@@ -73,6 +73,10 @@ public static class Themes
         },
         _ => SquirclesLike(squircleCorner, false)
     };
+
+    /// <summary>Themes offered in the UI (fluid-dropdown themes are hidden for now).</summary>
+    public static readonly LintelTheme[] Selectable =
+        { LintelTheme.Squircles, LintelTheme.Power, LintelTheme.Islands };
 
     public static string DisplayName(LintelTheme t) => t switch
     {

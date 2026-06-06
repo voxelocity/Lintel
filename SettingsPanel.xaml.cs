@@ -45,7 +45,13 @@ public partial class SettingsPanel : UserControl
     private void LoadFromSettings()
     {
         _selMode = (int)_settings.Mode;
-        _selTheme = (int)_settings.Theme;
+        // Resin/Mond (fluid) are hidden; show their non-fluid base instead.
+        _selTheme = _settings.Theme switch
+        {
+            LintelTheme.Power or LintelTheme.Resin => 1,
+            LintelTheme.Islands => 2,
+            _ => 0
+        };
         UpdateModeButtons();
         UpdateThemeButtons();
 
@@ -144,7 +150,7 @@ public partial class SettingsPanel : UserControl
     {
         var on = new SolidColorBrush(Color.FromRgb(0x0A, 0x84, 0xFF));
         var dim = new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xD5));
-        Button[] btns = { ThemeSquircles, ThemePower, ThemeIslands, ThemeResin, ThemeMond };
+        Button[] btns = { ThemeSquircles, ThemePower, ThemeIslands };
         for (int i = 0; i < btns.Length; i++)
         {
             btns[i].Background = _selTheme == i ? on : Brushes.Transparent;

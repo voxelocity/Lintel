@@ -1109,7 +1109,7 @@ public partial class MainWindow : Window, IWidgetHost
     private void ShowThemeMenu(UIElement target)
     {
         var rows = new List<MenuRow>();
-        foreach (LintelTheme t in Enum.GetValues<LintelTheme>())
+        foreach (LintelTheme t in Themes.Selectable)
         {
             var captured = t;
             rows.Add(new MenuRow(Themes.DisplayName(t), () => ChangeTheme(captured), Checked: _settings.Theme == t));
