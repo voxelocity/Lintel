@@ -201,11 +201,11 @@ public static class Themes
         BubbleGloss = 0.30,
     };
 
-    // Windows 7 Aero: fully clear "liquid glass" — light blue translucent blur, strong reflection; taller.
+    // Windows 7 Aero: thin, very see-through dark glass with a soft blur and minimal gloss.
     private static ThemeDef Win7() => new()
     {
-        BubbleIdle = Color.FromArgb(0x26, 0xFF, 0xFF, 0xFF),
-        BubbleHover = Color.FromArgb(0x4A, 0xFF, 0xFF, 0xFF),
+        BubbleIdle = Color.FromArgb(0x1C, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF),
         CornerRadius = 6,
         Padding = new Thickness(10, 0, 10, 0),
         Spacing = 6,
@@ -213,15 +213,14 @@ public static class Themes
         Acrylic = true,
         AeroBlur = true,
         FrostedGlass = true,
-        AcrylicTint = Color.FromArgb(0x34, 0x9C, 0xC6, 0xF2),   // very translucent light blue — clear glass
-        DropdownColor = Color.FromArgb(0xEC, 0x1B, 0x3A, 0x60), // readable dropdown panel
+        AcrylicTint = Color.FromArgb(0x30, 0x10, 0x16, 0x20),   // dark, very translucent — wallpaper shows through
+        DropdownColor = Color.FromArgb(0xEC, 0x16, 0x1B, 0x24), // readable dropdown panel
         BarHeight = 38,
-        GlossStrength = 0.7,
-        TopEdge = Color.FromArgb(0xA0, 0xFF, 0xFF, 0xFF),
-        BottomEdge = Color.FromArgb(0x3A, 0x00, 0x10, 0x28),
+        GlossStrength = 0.12,                                   // just a hint of sheen, not a gradient
+        TopEdge = Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF),
         FontFamily = "Segoe UI",
-        BubbleBorder = Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF),
-        BubbleGloss = 0.55,
+        BubbleBorder = Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF),
+        BubbleGloss = 0.16,
     };
 
     // Built-in themes, resolved as a function of the user's squircle-corner setting.
