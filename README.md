@@ -1,8 +1,22 @@
+<div align="center">
+
+<img src="docs/logo.png" alt="Lintel" width="130"/>
+
 # Lintel
 
 A macOS / Linux-style **top bar for Windows 11** with a fluid, Dynamic Island-style widget system. Lightweight native WPF (.NET 8) — no Electron, tiny runtime footprint. Spans the full width of your screen and holds widgets that animate, reflow, and grow menus straight out of the bar.
 
-![bar](docs/bar.png)
+🔊 **[Listen to the Lintel ad](docs/lintelad.wav)**
+
+</div>
+
+![Lintel bar](docs/bar.png)
+
+## Screenshots
+
+| Claude usage | Now playing | System load |
+|:---:|:---:|:---:|
+| ![Claude usage widget](docs/claude.png) | ![Media widget](docs/media.png) | ![System load panel](docs/system-load.png) |
 
 ## Widgets
 
@@ -16,8 +30,10 @@ The bar is built from widgets arranged into three zones — **left**, **center**
 - **System Load** — one compact widget that summarises overall usage as **Low / Medium / High** (colour-coded). Click it to drop down a panel with **live mini-graphs for every resource**.
 - **App Tabs** — your open windows shown as taskbar-style tabs (focused one highlighted, click to switch). A compact mode shows just the focused window with an expand chevron that drops a vertical switcher.
 - **Quick Note** — a persistent scratch note; click to edit inline.
-- **Workspaces** — ‹ › arrows to switch virtual desktops.
+- **Workspaces** — two arrow buttons with the **current virtual-desktop name** between them; click an arrow to switch desktops.
 - **Media** — now-playing from the Windows media session. Compact shows the cover art + an audio visualizer; click to expand a player with a large cover, title/artist, progress bar, transport controls, and a bigger visualizer.
+- **Claude** — reads Claude Code's local usage to show a **token-usage heatmap** (last 17 weeks), your current 5-hour window usage / tokens left, when the window frees up, today's total, and a button that **opens the Claude desktop app** (or claude.ai). Set an optional token budget in Advanced settings.
+- **GitHub** — your **contribution graph** plus quick actions: **clone a repo** (`owner/repo` or URL) straight to your Desktop, and **create a new repo from a folder** and push it. Uses the `gh` CLI.
 
 ## Themes
 
@@ -26,9 +42,9 @@ Switch from the customize pill (theme button) or **Advanced settings → Theme**
 - **Squircles** (default) — rounded, filled bubbles with full-colour icons.
 - **Power** — flat, PowerToys-style: acrylic blur behind the bar, a bottom highlight hairline, muted (desaturated) icons.
 - **Islands** — each zone (left / center / right) is its own floating rounded bar with gaps between them, and fluid dropdowns.
-- **Resin** — like Power, but with fluid Dynamic-Island-style dropdowns that spring out of the bar.
+- **Mond** — like Power, with subtle vertical **dividers between every widget**.
 
-**Dropdowns open on hover by default** (toggle to click in Quick Settings). A gauge shows a **history graph whose style matches the metric** (smooth area for CPU/RAM/GPU, bars for Disk/Network, a line for Battery), live min / avg / max, **and the top processes using that resource**. Dropdowns grow open and shrink closed; in **Resin** they're drawn as one shape stretching out of the bar.
+**Dropdowns open on hover by default** (toggle to click in Quick Settings). A gauge shows a **history graph whose style matches the metric** (smooth area for CPU/RAM/GPU, bars for Disk/Network, a line for Battery), live min / avg / max, **and the top processes using that resource**. Dropdowns grow open and shrink closed, themed to match the bar.
 
 **Dynamic-mode peek:** when the bar is hidden under a fullscreen/overlapping app, hold the cursor at the very top edge briefly to reveal it.
 
@@ -116,11 +132,11 @@ For a much smaller, framework-dependent build (needs the .NET 8 Desktop Runtime 
 Lintel.csproj          project + build settings
 app.manifest           PerMonitorV2 DPI awareness
 App.xaml(.cs)          startup, single-instance guard, tray icon
-MainWindow.xaml(.cs)   the bar, visibility state machine, customize mode, drag, popups
-SettingsWindow.xaml(.cs)
+MainWindow.xaml(.cs)   the bar, visibility state machine, customize mode, drag, popups, dropdowns
+SettingsPanel.xaml(.cs) in-bar settings card (Quick + Advanced views)
 Models/AppSettings.cs  config model + JSON persistence (incl. widget layout)
 Interop/               Win32 P/Invoke, AppBar, monitor helpers
-Services/              PerfMonitor (CPU/RAM/GPU/…), foreground probe, startup registration
-Controls/              RingGauge, HistoryGraph, AnimatedBarPanel (fluid reflow)
-Widgets/               WidgetCatalog, WidgetView, IWidgetHost
+Services/              PerfMonitor, MediaService, AudioCapture, ClaudeUsage, GitHubService, DesktopInfo, startup
+Controls/              HistoryGraph, Heatmap, Visualizer, BatteryIcon, FluidCard, AnimatedBarPanel (fluid reflow)
+Widgets/               WidgetCatalog, WidgetView, IWidgetHost, Icons, Themes
 ```
