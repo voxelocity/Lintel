@@ -91,6 +91,7 @@ public partial class MainWindow : Window, IWidgetHost
     // =========================================================== IWidgetHost
 
     public AppSettings Settings => _settings;
+    public double BarHeight => _effectiveBarHeight;   // effective height (theme override or setting)
     public bool Customizing { get; private set; }
     public string ActiveAppName => _activeAppName;
     public Metric GetMetric(string key) => _perf!.Get(key);
@@ -171,6 +172,7 @@ public partial class MainWindow : Window, IWidgetHost
 
     private bool _backdrop;
     private Color _backdropTint;
+    private double _effectiveBarHeight = 32;   // theme height override, or the user's setting
 
     private bool _fluid;
     private bool _shoulder;
@@ -186,6 +188,7 @@ public partial class MainWindow : Window, IWidgetHost
     public void ApplySettings()
     {
         var theme = Themes.Resolve(_settings);
+        _effectiveBarHeight = theme.BarHeight ?? _settings.BarHeight;
         _backdrop = theme.Acrylic;
         _backdropTint = theme.AcrylicTint;
         _fluid = theme.FluidDropdowns;
@@ -213,7 +216,33 @@ public partial class MainWindow : Window, IWidgetHost
                     : BrushFrom(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E));
         Foreground = BrushFrom(_settings.ForegroundColor, Color.FromArgb(0xFF, 0xF2, 0xF2, 0xF7));
 
-        BottomLine.Visibility = theme.BottomHighlight ? Visibility.Visible : Visibility.Collapsed;
+        // Glossy reflection across the top half (Aero / Luna).
+        if (theme.GlossStrength > 0)
+        {
+            GlossOverlay.Fill = GlossBrush(theme.GlossStrength);
+            GlossOverlay.Visibility = Visibility.Visible;
+        }
+        else GlossOverlay.Visibility = Visibility.Collapsed;
+
+        // Bright top edge.
+        if (theme.TopEdge is Color te)
+        {
+            TopEdgeLine.Background = new SolidColorBrush(te);
+            TopEdgeLine.Visibility = Visibility.Visible;
+        }
+        else TopEdgeLine.Visibility = Visibility.Collapsed;
+
+        // Bottom edge: explicit theme colour, else the Power-style highlight.
+        Color? bottomEdge = theme.BottomEdge ?? (theme.BottomHighlight ? Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF) : (Color?)null);
+        if (bottomEdge is Color be)
+        {
+            BottomLine.Background = new SolidColorBrush(be);
+            BottomLine.Visibility = Visibility.Visible;
+        }
+        else BottomLine.Visibility = Visibility.Collapsed;
+
+        // Theme font (e.g. Tahoma for XP).
+        FontFamily = new System.Windows.Media.FontFamily(theme.FontFamily ?? "Segoe UI");
 
         RebuildWidgets();
         ApplyZoneStyle(theme);
@@ -279,16 +308,16 @@ public partial class MainWindow : Window, IWidgetHost
         uint dpi = GetDpiForWindow(_hwnd);
         double scale = dpi == 0 ? 1.0 : dpi / 96.0;
         _scaleX = _scaleY = scale;
-        _barHeightPx = (int)Math.Round(_settings.BarHeight * scale);
+        _barHeightPx = (int)Math.Round(_effectiveBarHeight * scale);
 
         Left = _monitorBounds.Left / scale;
         Top = _monitorBounds.Top / scale;
         Width = _monitorBounds.Width / scale;
-        Height = _settings.BarHeight;
+        Height = _effectiveBarHeight;
 
         SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
-        if (!_shown) SlideTransform.Y = -_settings.BarHeight;
+        if (!_shown) SlideTransform.Y = -_effectiveBarHeight;
     }
 
     public void ApplyMode(bool initial = false)
@@ -509,7 +538,7 @@ public partial class MainWindow : Window, IWidgetHost
         SetClickThrough(!show);
         if (_backdrop) ApplyBackdrop(show);
 
-        double target = show ? 0 : -_settings.BarHeight;
+        double target = show ? 0 : -_effectiveBarHeight;
         int ms = animate ? _settings.AnimationMs : 0;
 
         if (ms <= 0)
@@ -1839,6 +1868,18 @@ public partial class MainWindow : Window, IWidgetHost
     public void ToggleCustomizeFromTray() => ToggleCustomize();
 
     // =========================================================== helpers
+
+    private static Brush GlossBrush(double strength)
+    {
+        byte A(double f) => (byte)Math.Clamp(f * strength, 0, 255);
+        var b = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(A(0x92), 0xFF, 0xFF, 0xFF), 0.0));
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(A(0x2C), 0xFF, 0xFF, 0xFF), 0.45));
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.50));
+        b.GradientStops.Add(new GradientStop(Color.FromArgb(A(0x10), 0x00, 0x00, 0x00), 1.0));
+        b.Freeze();
+        return b;
+    }
 
     private static Brush VerticalGradient(Color top, Color bottom)
     {

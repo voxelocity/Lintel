@@ -72,6 +72,8 @@
             </Border.RenderTransform>
 
             <Grid>
+                <!-- Glossy reflection across the top half (Aero / Luna themes) -->
+                <Rectangle x:Name="GlossOverlay" VerticalAlignment="Stretch" IsHitTestVisible="False" Visibility="Collapsed"/>
                 <Grid x:Name="BarGrid" Margin="8,0">
                     <Border x:Name="ZoneLeft" HorizontalAlignment="Left" VerticalAlignment="Stretch" Background="Transparent">
                         <c:AnimatedBarPanel x:Name="PanelLeft" VerticalAlignment="Stretch"/>
@@ -85,9 +87,12 @@
                     <!-- Holds the lifted widget while dragging -->
                     <Canvas x:Name="DragLayer" IsHitTestVisible="False"/>
                 </Grid>
-                <!-- Subtle bottom highlight (Power theme) -->
+                <!-- Subtle bottom highlight (Power theme) / theme bottom edge -->
                 <Border x:Name="BottomLine" Height="1" VerticalAlignment="Bottom"
                         Background="#24FFFFFF" Visibility="Collapsed" IsHitTestVisible="False"/>
+                <!-- Bright top-edge hairline (Aero / Luna themes) -->
+                <Border x:Name="TopEdgeLine" Height="1" VerticalAlignment="Top"
+                        Visibility="Collapsed" IsHitTestVisible="False"/>
             </Grid>
         </Border>
 

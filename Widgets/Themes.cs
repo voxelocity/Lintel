@@ -26,6 +26,16 @@ public sealed class ThemeDef
     public Color? BarTop;           // optional vertical bar gradient, top colour …
     public Color? BarBottom;        // … and bottom colour (e.g. the Windows XP Luna bar)
     public Color? DropdownColor;    // optional explicit dropdown material (overrides the default)
+
+    // --- richer cosmetics (themes can change size, material, and add glossy detailing) ---
+    public double? BarHeight;       // override the bar height in px (null = use the user's setting)
+    public double GlossStrength;    // 0 = none; a glossy reflection across the top half (Aero / Luna)
+    public Color? TopEdge;          // bright hairline along the very top edge
+    public Color? BottomEdge;       // hairline along the bottom edge (overrides BottomHighlight colour)
+    public string? FontFamily;      // theme font, e.g. "Tahoma" for XP
+    public Color? BubbleBorder;     // raised-button outline drawn around each widget
+    public double BubbleBorderThickness = 1;
+    public double BubbleGloss;      // 0 = none; glossy sheen on each widget bubble
 }
 
 /// <summary>
@@ -50,6 +60,14 @@ public sealed class ThemeSpec
     public string BarTop { get; set; } = "";                // optional bar gradient top colour ("" = none)
     public string BarBottom { get; set; } = "";             // optional bar gradient bottom colour
     public string DropdownColor { get; set; } = "";         // optional explicit dropdown background ("" = auto)
+    public double BarHeight { get; set; } = 0;              // override bar height in px (0 = use global setting)
+    public double GlossStrength { get; set; } = 0;          // 0..1 glossy top-half reflection
+    public string TopEdge { get; set; } = "";               // bright hairline along the top edge
+    public string BottomEdge { get; set; } = "";            // hairline along the bottom edge
+    public string FontFamily { get; set; } = "";            // theme font, e.g. "Tahoma"
+    public string BubbleBorder { get; set; } = "";          // outline around each widget bubble
+    public double BubbleBorderThickness { get; set; } = 1;
+    public double BubbleGloss { get; set; } = 0;            // 0..1 glossy sheen on each widget
 
     public ThemeDef ToDef() => new()
     {
@@ -67,7 +85,15 @@ public sealed class ThemeSpec
         WidgetDividers = WidgetDividers,
         BarTop = NullCol(BarTop),
         BarBottom = NullCol(BarBottom),
-        DropdownColor = NullCol(DropdownColor)
+        DropdownColor = NullCol(DropdownColor),
+        BarHeight = BarHeight > 0 ? BarHeight : (double?)null,
+        GlossStrength = Math.Clamp(GlossStrength, 0, 1),
+        TopEdge = NullCol(TopEdge),
+        BottomEdge = NullCol(BottomEdge),
+        FontFamily = string.IsNullOrWhiteSpace(FontFamily) ? null : FontFamily,
+        BubbleBorder = NullCol(BubbleBorder),
+        BubbleBorderThickness = BubbleBorderThickness,
+        BubbleGloss = Math.Clamp(BubbleGloss, 0, 1)
     };
 
     private static Color Col(string hex, Color fallback)
@@ -125,47 +151,64 @@ public static class Themes
         ZoneBackground = Color.FromArgb(0xE6, 0x1C, 0x1C, 0x1E),
     };
 
-    // Windows XP "Luna Blue": a solid glossy blue gradient bar, bright icons.
+    // Windows XP "Luna Blue": solid glossy blue gradient, bright icons, raised glassy buttons, Tahoma.
     private static ThemeDef WinXP() => new()
     {
-        BubbleIdle = Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF),
-        BubbleHover = Color.FromArgb(0x46, 0xFF, 0xFF, 0xFF),
+        BubbleIdle = Color.FromArgb(0x2A, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF),
         CornerRadius = 4,
-        Padding = new Thickness(8, 0, 8, 0),
+        Padding = new Thickness(9, 0, 9, 0),
         Spacing = 6,
         IconSaturation = 1.0,
-        BarTop = Color.FromRgb(0x3C, 0x81, 0xF3),       // light Luna blue
-        BarBottom = Color.FromRgb(0x16, 0x46, 0xC4),    // deep Luna blue
-        DropdownColor = Color.FromArgb(0xF2, 0x1E, 0x52, 0xB0),
-        BottomHighlight = true,
+        BarTop = Color.FromRgb(0x3E, 0x86, 0xF0),       // light Luna blue
+        BarBottom = Color.FromRgb(0x10, 0x3C, 0xBE),    // deep Luna blue
+        DropdownColor = Color.FromArgb(0xF4, 0x1B, 0x4F, 0xB0),
+        BarHeight = 30,
+        GlossStrength = 0.55,
+        TopEdge = Color.FromArgb(0xCC, 0xBF, 0xD8, 0xFF),   // bright Luna shine line
+        BottomEdge = Color.FromArgb(0x70, 0x06, 0x1E, 0x6E),
+        FontFamily = "Tahoma",
+        BubbleBorder = Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF),
+        BubbleGloss = 0.5,
     };
 
-    // Windows Vista Aero: dark translucent glass (heavy blur), glossy highlight.
+    // Windows Vista Aero: dark translucent glass (real blur) with a subtle glossy reflection.
     private static ThemeDef WinVista() => new()
     {
         BubbleIdle = Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF),
-        BubbleHover = Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x3A, 0xFF, 0xFF, 0xFF),
         CornerRadius = 6,
-        Padding = new Thickness(8, 0, 8, 0),
+        Padding = new Thickness(9, 0, 9, 0),
         Spacing = 5,
         IconSaturation = 1.0,
         Acrylic = true,
-        AcrylicTint = Color.FromArgb(0xC2, 0x0C, 0x12, 0x1E),
-        BottomHighlight = true,
+        AcrylicTint = Color.FromArgb(0xC6, 0x0A, 0x10, 0x1C),
+        BarHeight = 30,
+        GlossStrength = 0.30,
+        TopEdge = Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF),
+        FontFamily = "Segoe UI",
+        BubbleBorder = Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF),
+        BubbleGloss = 0.28,
     };
 
-    // Windows 7 Aero: lighter blue-tinted glass.
+    // Windows 7 Aero: lighter blue-tinted glass with a strong glossy reflection; taller, chunkier.
     private static ThemeDef Win7() => new()
     {
-        BubbleIdle = Color.FromArgb(0x20, 0xFF, 0xFF, 0xFF),
-        BubbleHover = Color.FromArgb(0x3C, 0xFF, 0xFF, 0xFF),
+        BubbleIdle = Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF),
         CornerRadius = 6,
-        Padding = new Thickness(8, 0, 8, 0),
-        Spacing = 5,
+        Padding = new Thickness(10, 0, 10, 0),
+        Spacing = 6,
         IconSaturation = 1.0,
         Acrylic = true,
-        AcrylicTint = Color.FromArgb(0xAE, 0x29, 0x4A, 0x78),
-        BottomHighlight = true,
+        AcrylicTint = Color.FromArgb(0xA6, 0x24, 0x46, 0x76),
+        BarHeight = 38,
+        GlossStrength = 0.62,
+        TopEdge = Color.FromArgb(0x88, 0xFF, 0xFF, 0xFF),
+        BottomEdge = Color.FromArgb(0x44, 0x00, 0x10, 0x28),
+        FontFamily = "Segoe UI",
+        BubbleBorder = Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF),
+        BubbleGloss = 0.5,
     };
 
     // Built-in themes, resolved as a function of the user's squircle-corner setting.

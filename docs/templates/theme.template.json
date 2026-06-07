@@ -30,5 +30,23 @@
   "widgetDividers": false,     // draw a subtle divider between every widget
 
   "separatedZones": false,     // true = left/center/right become floating pills
-  "zoneBackground": "#E61C1C1E" // the pill colour when separatedZones is true
+  "zoneBackground": "#E61C1C1E", // the pill colour when separatedZones is true
+
+  // ---- distinctive cosmetics (all optional) ----
+  // Make a theme truly its own: change the bar's size, material, gloss and detailing.
+
+  "barTop": "",                // bar gradient top colour (e.g. "#FF3E86F0" for an XP-style bar)
+  "barBottom": "",             // bar gradient bottom colour ("" on both = no gradient)
+  "dropdownColor": "",         // force the dropdown panel colour ("" = match the bar)
+
+  "barHeight": 0,              // override the bar height in px (0 = use the global setting)
+  "fontFamily": "",            // theme font, e.g. "Tahoma" or "Comic Sans MS" ("" = default)
+
+  "glossStrength": 0,          // 0–1 glossy reflection across the top half (Aero / Luna shine)
+  "topEdge": "",               // bright hairline along the top edge, e.g. "#88FFFFFF"
+  "bottomEdge": "",            // hairline along the bottom edge
+
+  "bubbleBorder": "",          // outline around each widget (raised-button look), e.g. "#80FFFFFF"
+  "bubbleBorderThickness": 1,
+  "bubbleGloss": 0             // 0–1 glossy sheen on each widget bubble
 }

@@ -41,6 +41,16 @@ A theme is colours + a few toggles. All colours are `#AARRGGBB`.
 | `bottomHighlight` | Hairline along the bottom edge |
 | `widgetDividers` | Divider line between every widget |
 | `separatedZones` / `zoneBackground` | Left/center/right become floating pills |
+| `barTop` / `barBottom` | Vertical bar gradient (e.g. the Windows XP Luna bar) |
+| `dropdownColor` | Force the dropdown panel colour |
+| `barHeight` | Override the bar height in px |
+| `fontFamily` | Theme font, e.g. `Tahoma` |
+| `glossStrength` | `0–1` glossy reflection across the top half (Aero/Luna shine) |
+| `topEdge` / `bottomEdge` | Bright/dark hairlines on the top/bottom edges |
+| `bubbleBorder` / `bubbleBorderThickness` | Raised-button outline on each widget |
+| `bubbleGloss` | `0–1` glossy sheen on each widget bubble |
+
+> These cosmetic fields are what make the built-in **Windows XP / Vista / 7** themes look distinct — a custom theme can use the exact same knobs (size, font, gloss, gradient, bevels) to be just as unique.
 
 ## Widgets
 

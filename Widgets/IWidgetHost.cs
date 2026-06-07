@@ -8,6 +8,8 @@ namespace Lintel.Widgets;
 public interface IWidgetHost
 {
     AppSettings Settings { get; }
+    /// <summary>Effective bar height in px (a theme may override the user's setting).</summary>
+    double BarHeight { get; }
     bool Customizing { get; }
 
     /// <summary>The active app name shown by the ActiveApp widget.</summary>

@@ -36,6 +36,9 @@ public sealed class WidgetView : Border
     private readonly double _iconSat;
     private readonly Color _fgColor;
     private readonly bool _preview;
+    private Color? _bubbleBorder;
+    private double _bubbleBorderThickness = 1;
+    private double _bubbleGloss;
 
     public WidgetView(IWidgetHost host, WidgetDescriptor descriptor, bool preview = false)
     {
@@ -50,9 +53,17 @@ public sealed class WidgetView : Border
         _fgColor = ParseColor(host.Settings.ForegroundColor, Colors.White);
 
         CornerRadius = new CornerRadius(theme.CornerRadius);
-        Height = Math.Max(22, host.Settings.BarHeight - 8);   // uniform bubble height
+        Height = Math.Max(20, host.BarHeight - 8);   // uniform bubble height (theme may resize the bar)
         Padding = theme.Padding;
         Background = _idleBg;
+        _bubbleBorder = theme.BubbleBorder;
+        _bubbleBorderThickness = theme.BubbleBorderThickness;
+        _bubbleGloss = theme.BubbleGloss;
+        if (_bubbleBorder is Color bb)
+        {
+            BorderBrush = Frozen(bb);
+            BorderThickness = new Thickness(_bubbleBorderThickness);
+        }
         SnapsToDevicePixels = true;
         VerticalAlignment = VerticalAlignment.Center;
         Cursor = Cursors.Arrow;
@@ -317,7 +328,7 @@ public sealed class WidgetView : Border
 
     private UIElement BuildMedia()
     {
-        double sz = Math.Max(18, _host.Settings.BarHeight - 10);
+        double sz = Math.Max(18, _host.BarHeight - 10);
         var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 
         var coverGrid = new Grid { Width = sz, Height = sz };
@@ -455,10 +466,29 @@ public sealed class WidgetView : Border
     private UIElement WrapWithBadge(UIElement content)
     {
         var grid = new Grid { VerticalAlignment = VerticalAlignment.Center };
+
+        // Glossy sheen across the top of the bubble (XP / Aero themes), behind the content.
+        if (_bubbleGloss > 0)
+        {
+            byte A(double f) => (byte)Math.Clamp(f * _bubbleGloss, 0, 255);
+            var gloss = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+            gloss.GradientStops.Add(new GradientStop(Color.FromArgb(A(0xB0), 0xFF, 0xFF, 0xFF), 0.0));
+            gloss.GradientStops.Add(new GradientStop(Color.FromArgb(A(0x40), 0xFF, 0xFF, 0xFF), 0.48));
+            gloss.GradientStops.Add(new GradientStop(Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.52));
+            gloss.Freeze();
+            grid.Children.Add(new Border
+            {
+                CornerRadius = CornerRadius,
+                Background = gloss,
+                IsHitTestVisible = false,
+                Margin = new Thickness(-Padding.Left, 0, -Padding.Right, 0)   // span the bubble's padding
+            });
+        }
+
         grid.Children.Add(content);
 
         // Sit on the bubble's top-right corner, lifted up to the bar's top edge (never above it).
-        double gap = Math.Max(0, (_host.Settings.BarHeight - Height) / 2.0);
+        double gap = Math.Max(0, (_host.BarHeight - Height) / 2.0);
         _removeBadge = new Border
         {
             Width = 15, Height = 15, CornerRadius = new CornerRadius(7.5), Background = Frozen(Color.FromRgb(0xFF, 0x45, 0x3A)),
@@ -536,8 +566,16 @@ public sealed class WidgetView : Border
     {
         if (_removeBadge != null) _removeBadge.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
         Cursor = on ? Cursors.SizeAll : Cursors.Arrow;
-        BorderThickness = on ? new Thickness(1) : new Thickness(0);
-        BorderBrush = on ? Frozen(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)) : null;
+        if (on)
+        {
+            BorderThickness = new Thickness(1);
+            BorderBrush = Frozen(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF));
+        }
+        else  // restore the theme's bubble border (if any)
+        {
+            BorderThickness = _bubbleBorder != null ? new Thickness(_bubbleBorderThickness) : new Thickness(0);
+            BorderBrush = _bubbleBorder is Color bb ? Frozen(bb) : null;
+        }
     }
 
     // ---- interaction ----
