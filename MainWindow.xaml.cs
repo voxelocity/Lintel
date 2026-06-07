@@ -172,6 +172,7 @@ public partial class MainWindow : Window, IWidgetHost
 
     private bool _backdrop;
     private bool _backdropAero;                // classic Aero blur vs frosted acrylic
+    private const bool _useOsBlur = false;     // OS blur is unreliable on Win11 → use translucency
     private Color _backdropTint;
     private double _effectiveBarHeight = 32;   // theme height override, or the user's setting
 
@@ -207,15 +208,21 @@ public partial class MainWindow : Window, IWidgetHost
             : (Color?)null;
 
         // Islands: transparent bar with floating zone pills (gaps show desktop).
-        // Acrylic: near-transparent (hit-testable) so the blur shows.
+        // Acrylic/glass: a genuinely translucent tint so the desktop shows through. (We don't rely
+        // on the OS blur — SetWindowCompositionAttribute renders as a flat opaque tint for a
+        // non-activating tool window on Windows 11, so per-pixel translucency is the reliable path.)
         // Gradient (e.g. Windows XP): a solid vertical gradient. Else: solid colour.
-        BarBackground = theme.SeparatedZones
-            ? new SolidColorBrush(Color.FromArgb(0x00, 0, 0, 0))
-            : _backdrop
-                ? new SolidColorBrush(Color.FromArgb(0x01, 0, 0, 0))
-                : theme is { BarTop: Color top, BarBottom: Color bottom }
-                    ? VerticalGradient(top, bottom)
-                    : BrushFrom(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E));
+        Brush barBg;
+        if (theme.SeparatedZones)
+            barBg = new SolidColorBrush(Color.FromArgb(0x00, 0, 0, 0));
+        else if (_backdrop)
+            barBg = new SolidColorBrush(_backdropTint);             // translucent glass
+        else if (theme is { BarTop: Color top, BarBottom: Color bottom })
+            barBg = VerticalGradient(top, bottom);
+        else
+            barBg = BrushFrom(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E));
+        if (barBg is SolidColorBrush scb) scb.Freeze();
+        BarBackground = barBg;
         Foreground = BrushFrom(_settings.ForegroundColor, Color.FromArgb(0xFF, 0xF2, 0xF2, 0xF7));
 
         // Glossy reflection across the top half (Aero / Luna).
@@ -285,10 +292,14 @@ public partial class MainWindow : Window, IWidgetHost
     private void ApplyBackdrop(bool enabled)
     {
         if (_hwnd == IntPtr.Zero) return;
+        // NOTE: On Windows 11 the undocumented SetWindowCompositionAttribute blur renders as a flat
+        // opaque tint for a non-activating tool window (no real blur), which actually *defeats* the
+        // glass look. We instead use a translucent BarBackground for see-through glass, and keep this
+        // policy disabled. Flip _useOsBlur to opt back in on systems where the blur works.
         uint abgr = (uint)((_backdropTint.A << 24) | (_backdropTint.B << 16) | (_backdropTint.G << 8) | _backdropTint.R);
         var accent = new ACCENT_POLICY
         {
-            AccentState = enabled
+            AccentState = (enabled && _useOsBlur)
                 ? (_backdropAero ? ACCENT_ENABLE_BLURBEHIND : ACCENT_ENABLE_ACRYLICBLURBEHIND)
                 : ACCENT_DISABLED,
             GradientColor = abgr
