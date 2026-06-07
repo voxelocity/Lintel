@@ -5,6 +5,8 @@ publish/
 *.dll
 *.exe
 *.pdb
+# …but ship the downloadable installer
+!installer/LintelSetup.exe
 
 # IDE
 .vs/

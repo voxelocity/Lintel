@@ -9,6 +9,7 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>assets\lintel.ico</ApplicationIcon>
     <AssemblyName>Lintel</AssemblyName>
     <RootNamespace>Lintel</RootNamespace>
     <Version>1.0.0</Version>
@@ -30,6 +31,14 @@
   <ItemGroup>
     <!-- WASAPI loopback capture for the real audio visualizer -->
     <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+
+  <!-- App logo: shipped as the exe icon, the WPF window icon, and embedded for the tray. -->
+  <ItemGroup>
+    <Resource Include="assets\lintel.png" />
+    <EmbeddedResource Include="assets\lintel.ico">
+      <LogicalName>Lintel.lintel.ico</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

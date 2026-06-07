@@ -123,9 +123,18 @@ public partial class App : Application
         parent.DropDownItems.Add(item);
     }
 
-    /// <summary>Draw a small thematic icon (a lit top bar) so we don't ship an .ico asset.</summary>
+    /// <summary>Tray icon: the Lintel logo (embedded .ico), with a drawn fallback.</summary>
     private static Icon BuildTrayIcon()
     {
+        try
+        {
+            var asm = System.Reflection.Assembly.GetExecutingAssembly();
+            using var s = asm.GetManifestResourceStream("Lintel.lintel.ico");
+            if (s != null)
+                return new Icon(s, new System.Drawing.Size(32, 32));   // closest frame to 32px
+        }
+        catch { /* fall back to the drawn mark */ }
+
         using var bmp = new Bitmap(32, 32);
         using (var g = Graphics.FromImage(bmp))
         {

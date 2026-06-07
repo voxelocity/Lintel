@@ -6,11 +6,19 @@
 
 A macOS / Linux-style **top bar for Windows 11** with a fluid, Dynamic Island-style widget system. Lightweight native WPF (.NET 8) — no Electron, tiny runtime footprint. Spans the full width of your screen and holds widgets that animate, reflow, and grow menus straight out of the bar.
 
+### [⬇️ Download the installer](https://github.com/voxelocity/Lintel/raw/main/installer/LintelSetup.exe)
+
 🔊 **[Listen to the Lintel ad](docs/lintelad.wav)**
 
 </div>
 
 ![Lintel bar](docs/bar.png)
+
+## Install
+
+**[Download `LintelSetup.exe`](https://github.com/voxelocity/Lintel/raw/main/installer/LintelSetup.exe)** and run it — a standard setup wizard installs Lintel per-user (**no administrator rights needed**), adds a Start Menu entry and an optional desktop shortcut, and registers an entry in *Apps & features* so you can uninstall cleanly. Lintel launches right after install; enable **Launch at Windows startup** from Settings if you want it on every login.
+
+> Self-contained — the .NET 8 runtime is bundled, so nothing else needs to be installed.
 
 ## Screenshots
 
