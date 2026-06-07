@@ -38,7 +38,7 @@ A theme is colours + a few toggles. All colours are `#AARRGGBB`.
 | `spacing` | Gap between widgets |
 | `iconSaturation` | `1` = full colour, `0` = grayscale |
 | `acrylic` / `acrylicTint` | Translucent bar + tint over it (lower the tint alpha for clearer glass) |
-| `frostedGlass` | **Real frosted glass** — live DWM acrylic blur on Win11 (blurred-wallpaper fallback on Win10) |
+| `frostedGlass` | **Real-time blur** of the live content behind the bar (toggle "Live glass blur" in settings) |
 | `aeroBlur` | (legacy OS blur; ignored on Win11 builds where it no longer works) |
 | `bottomHighlight` | Hairline along the bottom edge |
 | `widgetDividers` | Divider line between every widget |

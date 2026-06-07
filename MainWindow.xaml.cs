@@ -170,7 +170,7 @@ public partial class MainWindow : Window, IWidgetHost
     protected override void OnClosed(EventArgs e)
     {
         Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
-        try { _backdropWindow?.Close(); } catch { }
+        _blurTimer?.Stop();
         _tick.Stop();
         _clock.Stop();
         _perf?.Dispose();
@@ -271,9 +271,6 @@ public partial class MainWindow : Window, IWidgetHost
         ApplyFrost(theme);
     }
 
-    private BackdropWindow? _backdropWindow;
-    private static bool DwmAcrylicSupported => Environment.OSVersion.Version.Build >= 22000;   // Win11+
-
     /// <summary>
     /// Frosted glass. Preferred: a real-time DWM acrylic backdrop window behind the bar (Win11).
     /// Fallback: a blurred snapshot of the desktop wallpaper.
@@ -282,73 +279,63 @@ public partial class MainWindow : Window, IWidgetHost
     {
         bool wantGlass = theme.FrostedGlass && !theme.SeparatedZones;
 
-        if (wantGlass && DwmAcrylicSupported && EnsureBackdrop(true))
+        // Preferred: custom real-time blur — capture the live content behind the bar (the bar excludes
+        // itself from capture) and blur it. Tracks live windows; the blur amount is ours to control.
+        if (wantGlass && _settings.LiveBlur)
         {
-            FrostImage.Visibility = Visibility.Collapsed; FrostImage.Source = null;
-            FrostTint.Background = new SolidColorBrush(_backdropTint);   // theme tint over the live blur
+            StartLiveBlur(true);
+            FrostImage.Effect = LiveBlurEffect();
+            var t = _backdropTint;
+            byte a = Math.Min(t.A, (byte)0x4A);   // light tint only, so the blur stays visible
+            FrostTint.Background = new SolidColorBrush(Color.FromArgb(a, t.R, t.G, t.B));
             FrostTint.Visibility = Visibility.Visible;
             BarBackground = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
-            PositionBackdrop();
             return;
         }
-        EnsureBackdrop(false);
-
-        if (wantGlass)
-        {
-            var strip = WallpaperFrost.BuildStrip(_monitorBounds.Width, _monitorBounds.Height, _barHeightPx);
-            if (strip != null)
-            {
-                FrostImage.Source = strip;
-                FrostImage.Effect = new System.Windows.Media.Effects.BlurEffect
-                {
-                    Radius = 26,
-                    KernelType = System.Windows.Media.Effects.KernelType.Gaussian,
-                    RenderingBias = System.Windows.Media.Effects.RenderingBias.Performance
-                };
-                FrostImage.Visibility = Visibility.Visible;
-                FrostTint.Background = new SolidColorBrush(_backdropTint);
-                FrostTint.Visibility = Visibility.Visible;
-                BarBackground = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
-                return;
-            }
-        }
+        // Live blur off → fall back to plain translucency (BarBackground was set to the translucent tint).
+        StartLiveBlur(false);
         FrostImage.Visibility = Visibility.Collapsed;
         FrostImage.Source = null;
         FrostTint.Visibility = Visibility.Collapsed;
     }
 
-    private bool EnsureBackdrop(bool wanted)
+    private static System.Windows.Media.Effects.BlurEffect LiveBlurEffect() => new()
     {
-        if (wanted)
+        Radius = 16,
+        KernelType = System.Windows.Media.Effects.KernelType.Gaussian,
+        RenderingBias = System.Windows.Media.Effects.RenderingBias.Performance
+    };
+
+    // ---- custom real-time blur ----
+
+    private DispatcherTimer? _blurTimer;
+
+    private void StartLiveBlur(bool on)
+    {
+        if (on)
         {
-            if (_backdropWindow == null)
+            if (_hwnd != IntPtr.Zero) SetWindowDisplayAffinity(_hwnd, WDA_EXCLUDEFROMCAPTURE);
+            FrostImage.Visibility = Visibility.Visible;
+            CaptureBlurFrame();
+            if (_blurTimer == null)
             {
-                try { _backdropWindow = new BackdropWindow(); _backdropWindow.Show(); }
-                catch { _backdropWindow = null; return false; }
+                _blurTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(45) };
+                _blurTimer.Tick += (_, _) => CaptureBlurFrame();
             }
-            ShowBackdrop(_shown);
-            return true;
+            _blurTimer.Start();
         }
-        if (_backdropWindow != null) { try { _backdropWindow.Close(); } catch { } _backdropWindow = null; }
-        return false;
+        else
+        {
+            _blurTimer?.Stop();
+            if (_hwnd != IntPtr.Zero) SetWindowDisplayAffinity(_hwnd, WDA_NONE);
+        }
     }
 
-    private void ShowBackdrop(bool show)
+    private void CaptureBlurFrame()
     {
-        if (_backdropWindow == null) return;
-        _backdropWindow.Visibility = show ? Visibility.Visible : Visibility.Hidden;
-        if (show) PositionBackdrop();
-    }
-
-    private void PositionBackdrop()
-    {
-        if (_backdropWindow == null || _backdropWindow.Handle == IntPtr.Zero) return;
-        _backdropWindow.Left = Left;
-        _backdropWindow.Top = Top + SlideTransform.Y;   // follow the slide so it never peeks past the bar
-        _backdropWindow.Width = Width;
-        _backdropWindow.Height = Height;
-        // sit directly beneath the bar in the topmost band
-        SetWindowPos(_backdropWindow.Handle, _hwnd, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        if (!_shown || _hwnd == IntPtr.Zero) return;
+        var src = ScreenCapture.Capture(_monitorBounds.Left, _monitorBounds.Top, _monitorBounds.Width, _barHeightPx);
+        if (src != null) FrostImage.Source = src;
     }
 
     private void ApplyZoneStyle(ThemeDef theme)
@@ -425,7 +412,6 @@ public partial class MainWindow : Window, IWidgetHost
         SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
         if (!_shown) SlideTransform.Y = -_effectiveBarHeight;
-        if (_backdropWindow != null && _shown) PositionBackdrop();
     }
 
     public void ApplyMode(bool initial = false)
@@ -638,7 +624,6 @@ public partial class MainWindow : Window, IWidgetHost
     private void ReassertTopmost()
     {
         SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-        if (_backdropWindow != null && _shown) PositionBackdrop();   // keep the acrylic just under the bar
     }
 
     // =========================================================== show/hide
@@ -648,7 +633,8 @@ public partial class MainWindow : Window, IWidgetHost
         _shown = show;
         SetClickThrough(!show);
         if (_backdrop) ApplyBackdrop(show);
-        ShowBackdrop(show);
+        // Pause the capture loop while the bar is hidden; refresh immediately when it returns.
+        if (_blurTimer != null) { if (show) { _blurTimer.Start(); CaptureBlurFrame(); } else _blurTimer.Stop(); }
 
         double target = show ? 0 : -_effectiveBarHeight;
         int ms = animate ? _settings.AnimationMs : 0;

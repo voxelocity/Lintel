@@ -83,6 +83,7 @@ public partial class SettingsPanel : UserControl
         StartupChk.IsChecked = _settings.LaunchAtStartup;
         ClaudeLimitBox.Text = _settings.ClaudeTokenLimit.ToString();
         CmdWidgetsChk.IsChecked = _settings.EnableCommandWidgets;
+        LiveBlurChk.IsChecked = _settings.LiveBlur;
     }
 
     private void ImportTheme_Click(object sender, RoutedEventArgs e) => ImportThemeRequested?.Invoke();
@@ -113,6 +114,7 @@ public partial class SettingsPanel : UserControl
         }
         _settings.ClaudeTokenLimit = Math.Max(0, ParseL(ClaudeLimitBox.Text, _settings.ClaudeTokenLimit));
         _settings.EnableCommandWidgets = CmdWidgetsChk.IsChecked == true;
+        _settings.LiveBlur = LiveBlurChk.IsChecked == true;
         _settings.RevealHoldMs = ParseI(RevealHoldBox.Text, _settings.RevealHoldMs);
         _settings.HideDelayMs = ParseI(HideDelayBox.Text, _settings.HideDelayMs);
         _settings.TriggerZonePx = ParseI(TriggerZoneBox.Text, _settings.TriggerZonePx);

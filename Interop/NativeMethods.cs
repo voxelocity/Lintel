@@ -115,6 +115,10 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref WINCOMPATTRDATA data);
 
+    [DllImport("user32.dll")]
+    public static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);
+    public const uint WDA_NONE = 0x0, WDA_EXCLUDEFROMCAPTURE = 0x11;
+
     public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     public const int DWMWCP_ROUND = 2;
 

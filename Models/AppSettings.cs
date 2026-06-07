@@ -107,6 +107,10 @@ public sealed class AppSettings
     /// <summary>Allow "command" custom widgets to run their shell command. On by default (your machine, your call).</summary>
     public bool EnableCommandWidgets { get; set; } = true;
 
+    /// <summary>Frosted themes use a real-time blur of the live content behind the bar. This excludes the
+    /// bar from screen capture/recording (needed to avoid a feedback loop). Off → blurred-wallpaper instead.</summary>
+    public bool LiveBlur { get; set; } = true;
+
     /// <summary>Open widget dropdowns on hover (true) or on click (false).</summary>
     public bool OpenOnHover { get; set; } = true;
 
