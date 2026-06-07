@@ -8,7 +8,6 @@ A macOS / Linux-style **top bar for Windows 11** with a fluid, Dynamic Island-st
 
 ### [⬇️ Download the installer](https://github.com/voxelocity/Lintel/raw/main/installer/LintelSetup.exe)
 
-🔊 **[Listen to the Lintel ad](docs/lintelad.wav)**
 
 </div>
 
