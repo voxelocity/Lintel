@@ -241,6 +241,16 @@
                             <TextBlock Text="Token budget per 5h (0 = show usage)"/>
                             <TextBox Grid.Column="1" x:Name="ClaudeLimitBox"/>
                         </Grid>
+
+                        <TextBlock Text="CUSTOMIZATION" Style="{StaticResource Section}"/>
+                        <CheckBox x:Name="CmdWidgetsChk" Content="Allow command widgets to run their commands" Margin="0,2,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Import theme…"  Style="{StaticResource Pill}" Margin="0,0,8,0" Click="ImportTheme_Click"/>
+                            <Button Content="Import widget…" Style="{StaticResource Pill}" Margin="0,0,8,0" Click="ImportWidget_Click"/>
+                            <Button Content="Open folder"    Style="{StaticResource Pill}" Click="OpenFolderBtn_Click"/>
+                        </StackPanel>
+                        <TextBlock Text="Drop .json themes/widgets in the folder or import them here. Templates: github.com/voxelocity/Lintel/tree/main/docs/templates"
+                                   Style="{StaticResource Hint}" Margin="0,8,0,0"/>
                     </StackPanel>
                 </Grid>
 

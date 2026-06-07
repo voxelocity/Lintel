@@ -41,6 +41,18 @@ The bar is built from widgets arranged into three zones — **left**, **center**
 - **Media** — now-playing from the Windows media session. Compact shows the cover art + an audio visualizer; click to expand a player with a large cover, title/artist, progress bar, transport controls, and a bigger visualizer.
 - **Claude** — reads Claude Code's local usage to show a **token-usage heatmap** (last 17 weeks), your current 5-hour window usage / tokens left, when the window frees up, today's total, and a button that **opens the Claude desktop app** (or claude.ai). Set an optional token budget in Advanced settings.
 - **GitHub** — your **contribution graph** plus quick actions: **clone a repo** (`owner/repo` or URL) straight to your Desktop, and **create a new repo from a folder** and push it. Uses the `gh` CLI.
+- **Custom widgets** — your own, from a JSON file (see below).
+
+## Make it yours — custom themes & widgets
+
+Lintel reads custom **themes** and **widgets** from JSON files, so anyone can build their own — no code, no recompiling. Drop files in `%AppData%\Lintel\{themes,widgets}\`, or use the **Upload theme / Upload widget** buttons in the Add-widget menu and in **Settings → Customization** (which also has *Open folder*).
+
+- **Themes** are colours + a few toggles, and appear in the theme picker by name.
+- **Widgets** come in two no-code flavours:
+  - **`command`** — runs a shell command on a timer and shows its output (weather, prices, ping, git status…).
+  - **`launcher`** — a clickable icon/label that opens a URL, file, or app.
+
+📄 **Full guide:** [`docs/CUSTOMIZING.md`](docs/CUSTOMIZING.md) · **Templates (well-commented):** [`docs/templates/`](docs/templates)
 
 ## Themes
 

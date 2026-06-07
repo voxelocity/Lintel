@@ -1,0 +1,34 @@
+{
+  // ============================================================================
+  //  LINTEL THEME TEMPLATE
+  //
+  //  A theme is just colours + a few toggles. Copy this file into:
+  //      %AppData%\Lintel\themes\
+  //  (or use Settings → Customization → "Import theme…", or the bar's theme menu
+  //   → "Import theme…"). It then shows up in the theme picker by its "name".
+  //
+  //  Colours are "#AARRGGBB"  (AA = alpha/opacity, then red, green, blue).
+  //  e.g. "#FF0A84FF" = opaque blue, "#14FFFFFF" = ~8% white.
+  //  Comments (//) and trailing commas are allowed in these files.
+  // ============================================================================
+
+  "name": "Sunset",            // shown in the theme picker — make it unique
+
+  "bubbleIdle":  "#14FF8A65",  // each widget's background, normally
+  "bubbleHover": "#33FF8A65",  // each widget's background, when hovered
+
+  "cornerRadius": 11,          // widget roundness (0 = square, ~16 = pill)
+  "padding": 9,                // horizontal padding inside each widget
+  "spacing": 5,                // gap between widgets
+
+  "iconSaturation": 1.0,       // 1 = full-colour icons, 0 = grayscale
+
+  "acrylic": true,             // blur the desktop behind the bar
+  "acrylicTint": "#B0241814",  // tint painted over that blur (AA = strength)
+
+  "bottomHighlight": true,     // thin light hairline along the bar's bottom edge
+  "widgetDividers": false,     // draw a subtle divider between every widget
+
+  "separatedZones": false,     // true = left/center/right become floating pills
+  "zoneBackground": "#E61C1C1E" // the pill colour when separatedZones is true
+}

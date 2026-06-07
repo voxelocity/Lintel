@@ -98,8 +98,14 @@ public sealed class AppSettings
     /// <summary>App Tabs widget: show only the focused window (collapsed) vs all tabs.</summary>
     public bool AppTabsCompressed { get; set; } = false;
 
-    /// <summary>Visual theme for the widgets.</summary>
+    /// <summary>Visual theme for the widgets (built-in enum; kept for back-compat).</summary>
     public LintelTheme Theme { get; set; } = LintelTheme.Squircles;
+
+    /// <summary>Selected theme by name — covers built-ins *and* custom JSON themes. Wins over <see cref="Theme"/>.</summary>
+    public string ThemeName { get; set; } = "";
+
+    /// <summary>Allow "command" custom widgets to run their shell command. On by default (your machine, your call).</summary>
+    public bool EnableCommandWidgets { get; set; } = true;
 
     /// <summary>Open widget dropdowns on hover (true) or on click (false).</summary>
     public bool OpenOnHover { get; set; } = true;
@@ -171,6 +177,8 @@ public sealed class AppSettings
         DynamicHideDelayMs = Math.Clamp(DynamicHideDelayMs, 0, 5000);
         AnimationMs = Math.Clamp(AnimationMs, 0, 2000);
         MonitorIndex = Math.Max(0, MonitorIndex);
+        // Migrate older configs that only stored the enum theme.
+        if (string.IsNullOrWhiteSpace(ThemeName)) ThemeName = Theme.ToString();
         return this;
     }
 

@@ -43,7 +43,7 @@ public sealed class WidgetView : Border
         Descriptor = descriptor;
         _preview = preview;
 
-        var theme = Themes.For(host.Settings.Theme, host.Settings.WidgetCornerRadius);
+        var theme = Themes.Resolve(host.Settings);
         _idleBg = Frozen(theme.BubbleIdle);
         _hoverBg = Frozen(theme.BubbleHover);
         _iconSat = theme.IconSaturation;
@@ -88,6 +88,7 @@ public sealed class WidgetView : Border
         WidgetKind.Media => BuildMedia(),
         WidgetKind.Claude => BuildStatWidget("claude", Color.FromRgb(0xD9, 0x77, 0x57), "—"),
         WidgetKind.GitHub => BuildStatWidget("github", Color.FromRgb(0xE6, 0xE6, 0xEA), "—"),
+        WidgetKind.Custom => BuildCustom(),
         _ => BuildText(out _dynamicText, false)
     };
 
@@ -235,6 +236,80 @@ public sealed class WidgetView : Border
 
     /// <summary>Set the compact label on a Claude/GitHub widget.</summary>
     public void SetStat(string text) { if (_statText != null) _statText.Text = text; }
+
+    // ---- custom (user-defined) widgets ----
+
+    private CustomWidgetSpec? _custSpec;
+    private DateTime _cmdLastRun = DateTime.MinValue;
+
+    private UIElement BuildCustom()
+    {
+        var spec = Descriptor.Custom ?? new CustomWidgetSpec();
+        _custSpec = spec;
+        var accent = ParseColor(spec.Accent, Accent);
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        var icon = BuildCustomIcon(spec.Icon, IconColor(accent));
+        if (icon != null) row.Children.Add(icon);
+
+        string initial = !string.IsNullOrEmpty(spec.Label) ? spec.Label
+                       : spec.Type.Equals("command", StringComparison.OrdinalIgnoreCase) ? "…"
+                       : spec.Name;
+        _statText = new TextBlock
+        {
+            Text = initial, FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = Foreground,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(icon != null ? 6 : 0, 0, 1, 0),
+            MaxWidth = 220, TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        if (string.IsNullOrEmpty(initial)) _statText.Visibility = Visibility.Collapsed;
+        row.Children.Add(_statText);
+        return WrapWithBadge(row);
+    }
+
+    /// <summary>Icon for a custom widget: a single emoji/char, a built-in icon key, or raw path data.</summary>
+    private UIElement? BuildCustomIcon(string icon, Color color)
+    {
+        if (string.IsNullOrWhiteSpace(icon)) return null;
+        icon = icon.Trim();
+
+        // Built-in icon key (e.g. "cpu", "github").
+        if (Icons.Get(icon) != null) return IconPath(icon, color, 16);
+
+        // A short string → treat as a text glyph (emoji or letter).
+        var info = new System.Globalization.StringInfo(icon);
+        if (info.LengthInTextElements <= 2)
+            return new TextBlock { Text = icon, FontSize = 14, Foreground = new SolidColorBrush(color), VerticalAlignment = VerticalAlignment.Center };
+
+        // Otherwise assume SVG-style path data.
+        try
+        {
+            var geo = Geometry.Parse(icon);
+            var brush = new SolidColorBrush(color); brush.Freeze();
+            return new Path { Data = geo, Fill = brush, Stretch = Stretch.Uniform, Width = 16, Height = 16, VerticalAlignment = VerticalAlignment.Center };
+        }
+        catch { return null; }
+    }
+
+    private void RefreshCustom()
+    {
+        var spec = _custSpec;
+        if (spec == null || _preview) return;
+        if (!spec.Type.Equals("command", StringComparison.OrdinalIgnoreCase)) return;
+        if (!_host.Settings.EnableCommandWidgets) { SetStat("(disabled)"); return; }
+
+        double interval = Math.Max(500, spec.IntervalMs);
+        if ((DateTime.UtcNow - _cmdLastRun).TotalMilliseconds < interval) return;
+        _cmdLastRun = DateTime.UtcNow;
+
+        var cmd = spec.Command;
+        Services.Customization.RunCommandAsync(cmd).ContinueWith(t =>
+        {
+            if (!t.IsCompletedSuccessfully) return;
+            Dispatcher.BeginInvoke(new Action(() => { if (!string.IsNullOrEmpty(t.Result)) SetStat(t.Result); }));
+        });
+    }
 
     private Image? _mediaCover;
     private Path? _mediaPlaceholder;
@@ -408,6 +483,7 @@ public sealed class WidgetView : Border
             case WidgetKind.Media: UpdateMedia(); break;
             case WidgetKind.Mode: UpdateModeText(); break;
             case WidgetKind.Workspaces: RefreshWorkspace(); break;
+            case WidgetKind.Custom: RefreshCustom(); break;
             default: if (_dynamicText != null) Refresh(_dynamicText); break;
         }
     }
@@ -517,10 +593,19 @@ public sealed class WidgetView : Border
             case WidgetKind.GitHub:
                 if (!_host.OpenOnHover) _host.OpenWidgetDropdown(this, hover: false);
                 break;
+            case WidgetKind.Custom:
+                if (!string.IsNullOrWhiteSpace(_custSpec?.OnClick)) OpenTarget(_custSpec!.OnClick);
+                break;
         }
     }
 
     // ---- helpers ----
+
+    private static void OpenTarget(string target)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(target.Trim()) { UseShellExecute = true }); }
+        catch { /* ignore bad targets */ }
+    }
 
     private static Brush Frozen(Color c) { var b = new SolidColorBrush(c); b.Freeze(); return b; }
     private static Brush ParseBrush(string hex, Brush fallback) { try { var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); b.Freeze(); return b; } catch { return fallback; } }

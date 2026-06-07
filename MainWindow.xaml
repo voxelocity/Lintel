@@ -17,6 +17,28 @@
         Title="Lintel">
 
     <Window.Resources>
+        <!-- Flat translucent text button (used for Import in the Add menu) -->
+        <Style x:Key="FooterBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b" Background="#1AFFFFFF" CornerRadius="8" Padding="10,7">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="#2EFFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Round tool button used in the customize pill -->
         <Style x:Key="RoundTool" TargetType="Button">
             <Setter Property="Width" Value="32"/>
@@ -178,7 +200,21 @@
                 <StackPanel Width="320">
                     <TextBlock Text="ADD WIDGET" Foreground="#FF8E8E93" FontSize="10"
                                FontWeight="SemiBold" Margin="4,2,0,8"/>
-                    <StackPanel x:Name="AddList"/>
+                    <ScrollViewer MaxHeight="460" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="AddList"/>
+                    </ScrollViewer>
+                    <Border Height="1" Background="#1AFFFFFF" Margin="4,8,4,8"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Style="{StaticResource FooterBtn}" Click="UploadWidget_Click" Content="⬆  Upload widget"/>
+                        <Button Grid.Column="2" Style="{StaticResource FooterBtn}" Click="UploadTheme_Click" Content="⬆  Upload theme"/>
+                    </Grid>
+                    <Button Style="{StaticResource FooterBtn}" Click="OpenFolder_Click" Content="📁  Open customization folder" Margin="0,8,0,0"
+                            Background="Transparent"/>
                 </StackPanel>
             </Border>
         </Popup>

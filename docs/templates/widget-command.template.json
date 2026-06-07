@@ -1,0 +1,32 @@
+{
+  // ============================================================================
+  //  LINTEL WIDGET TEMPLATE — "command" type
+  //
+  //  A command widget runs a shell command on a timer and shows the FIRST line
+  //  of its output on the bar. Great for weather, prices, ping, git status,
+  //  "songs in queue", anything a script can print.
+  //
+  //  Install: copy into  %AppData%\Lintel\widgets\  — or use the "Upload widget"
+  //  button in the bar's Add-widget menu / Settings → Customization. It then
+  //  appears in the Add menu under the "Custom" category.
+  //
+  //  ⚠️ Command widgets only run while "Allow command widgets" is enabled in
+  //     Advanced settings (on by default). The command runs via:  cmd /c <command>
+  //  Comments (//) and trailing commas are allowed.
+  // ============================================================================
+
+  "key":  "weather",        // unique id (used to remember it in your layout)
+  "name": "Weather",        // shown in the Add menu + tooltip
+  "type": "command",        // "command" = run + show output
+
+  // The command. Its first non-blank output line is displayed (trimmed to 60 chars).
+  // This one prints the local temperature (needs internet; curl ships with Win10+):
+  "command": "curl -s \"https://wttr.in/?format=%t\"",
+  "intervalMs": 900000,     // re-run every 15 min (900000 ms). Min 500.
+
+  "icon":   "🌡",            // an emoji, a single letter, a built-in key
+                            // (cpu/ram/gpu/disk/net/battery/clock/...), or SVG path data
+  "accent": "#FFFFA53C",    // icon colour (#AARRGGBB)
+
+  "onClick": "https://wttr.in"  // optional: clicking opens this URL / app / file
+}

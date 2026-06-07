@@ -149,6 +149,7 @@ public partial class MainWindow : Window, IWidgetHost
         _media.Start();
         _audio = new AudioCapture();
 
+        LoadCustomization();
         ApplySettings();
         ApplyMode(initial: true);
 
@@ -184,7 +185,7 @@ public partial class MainWindow : Window, IWidgetHost
 
     public void ApplySettings()
     {
-        var theme = Themes.For(_settings.Theme, _settings.WidgetCornerRadius);
+        var theme = Themes.Resolve(_settings);
         _backdrop = theme.Acrylic;
         _backdropTint = theme.AcrylicTint;
         _fluid = theme.FluidDropdowns;
@@ -313,7 +314,7 @@ public partial class MainWindow : Window, IWidgetHost
         PanelRight.Children.Clear();
         _allWidgets.Clear();
 
-        var t = Themes.For(_settings.Theme, _settings.WidgetCornerRadius);
+        var t = Themes.Resolve(_settings);
         PanelLeft.Spacing = PanelCenter.Spacing = PanelRight.Spacing = t.Spacing;
 
         Brush? divider = null;
@@ -645,6 +646,10 @@ public partial class MainWindow : Window, IWidgetHost
     }
 
     private void PlusButton_Click(object sender, RoutedEventArgs e) => OpenAddMenu();
+
+    private void UploadWidget_Click(object sender, RoutedEventArgs e) { AddPopup.IsOpen = false; ImportWidgetFromFile(); }
+    private void UploadTheme_Click(object sender, RoutedEventArgs e) { AddPopup.IsOpen = false; ImportThemeFromFile(); }
+    private void OpenFolder_Click(object sender, RoutedEventArgs e) => OpenCustomizationFolder();
 
     private void LayoutButton_Click(object sender, RoutedEventArgs e) => ShowLayoutMenu((UIElement)sender);
 
@@ -1134,23 +1139,29 @@ public partial class MainWindow : Window, IWidgetHost
 
     private void ShowThemeMenu(UIElement target)
     {
+        string current = Themes.NameOf(_settings);
         var rows = new List<MenuRow>();
-        foreach (LintelTheme t in Themes.Selectable)
+        foreach (var name in Themes.Names())
         {
-            var captured = t;
-            rows.Add(new MenuRow(Themes.DisplayName(t), () => ChangeTheme(captured), Checked: _settings.Theme == t));
+            var captured = name;
+            rows.Add(new MenuRow(Themes.DisplayName(name), () => ChangeTheme(captured), Checked: name == current));
         }
+        rows.Add(Sep());
+        rows.Add(new MenuRow("Import theme…", ImportThemeFromFile));
         double off = target.TranslatePoint(new Point(0, 0), BarRoot).X - 20;
         off = Math.Clamp(off, 8, Math.Max(8, BarRoot.ActualWidth - 200));
-        OpenOverlay(BuildMenuCard(rows, 190), BarRoot, off);
+        OpenOverlay(BuildMenuCard(rows, 200), BarRoot, off);
     }
 
-    public void ChangeTheme(LintelTheme theme)
+    public void ChangeTheme(string name)
     {
-        _settings.Theme = theme;
+        _settings.ThemeName = name;
+        if (Enum.TryParse<LintelTheme>(name, out var en)) _settings.Theme = en;   // keep enum in sync for built-ins
         _settings.Save();
         ApplySettings();
     }
+
+    public void ChangeTheme(LintelTheme theme) => ChangeTheme(theme.ToString());
 
     // ---- about ----
 
@@ -1641,6 +1652,70 @@ public partial class MainWindow : Window, IWidgetHost
         catch { /* ignore */ }
     }
 
+    // =========================================================== customization (themes + widgets)
+
+    /// <summary>(Re)load user themes and widgets from disk into the registries.</summary>
+    private void LoadCustomization()
+    {
+        Customization.EnsureDirs();
+        Themes.SetCustom(Customization.LoadThemes());
+        WidgetCatalog.SetCustom(Customization.LoadWidgets());
+    }
+
+    public void ImportThemeFromFile()
+    {
+        var path = PickJsonFile("Import a Lintel theme");
+        if (path == null) return;
+        try
+        {
+            var name = Customization.ImportTheme(path);
+            LoadCustomization();
+            if (name != null) ChangeTheme(name);          // load + apply it immediately
+            else ShowMessage("Import theme", "That file didn't look like a valid theme.");
+        }
+        catch (Exception ex) { ShowMessage("Import theme", "Couldn't import that theme:\n" + ex.Message); }
+    }
+
+    public void ImportWidgetFromFile()
+    {
+        var path = PickJsonFile("Import a Lintel widget");
+        if (path == null) return;
+        try
+        {
+            var key = Customization.ImportWidget(path);
+            LoadCustomization();
+            if (key != null)
+            {
+                AddWidget(key);                            // drop it on the bar right away
+                if (AddPopup.IsOpen) BuildAddList();
+            }
+            else ShowMessage("Import widget", "That file didn't look like a valid widget.");
+        }
+        catch (Exception ex) { ShowMessage("Import widget", "Couldn't import that widget:\n" + ex.Message); }
+    }
+
+    public void OpenCustomizationFolder() => Customization.OpenFolder();
+
+    private string? PickJsonFile(string title)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = title,
+            Filter = "Lintel JSON (*.json)|*.json|All files (*.*)|*.*",
+            CheckFileExists = true
+        };
+        FocusWindowForDialog();
+        return dlg.ShowDialog(this) == true ? dlg.FileName : null;
+    }
+
+    private void ShowMessage(string title, string body)
+    {
+        var stack = new StackPanel { Width = 300 };
+        stack.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.Bold, FontSize = 16, Foreground = Brushes.White });
+        stack.Children.Add(new TextBlock { Text = body, Foreground = new SolidColorBrush(Color.FromRgb(0xC0, 0xC0, 0xC5)), FontSize = 12.5, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap });
+        OpenOverlayCentered(Card(stack, new Thickness(18, 16, 18, 16)), 336);
+    }
+
     /// <summary>Launch the Claude desktop app if it's installed, otherwise open claude.ai.</summary>
     private static void OpenClaude()
     {
@@ -1747,6 +1822,9 @@ public partial class MainWindow : Window, IWidgetHost
         };
         panel.CloseRequested += CloseOverlay;
         panel.WidthChanged += RecenterOverlay;
+        panel.ImportThemeRequested += ImportThemeFromFile;
+        panel.ImportWidgetRequested += ImportWidgetFromFile;
+        panel.OpenFolderRequested += OpenCustomizationFolder;
         var card = Card(panel, new Thickness(0));
         OpenOverlayCentered(card, panel.CurrentWidth, focusable: true);
         if (advanced) panel.ExpandToAdvanced();

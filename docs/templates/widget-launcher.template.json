@@ -1,0 +1,24 @@
+{
+  // ============================================================================
+  //  LINTEL WIDGET TEMPLATE — "launcher" type
+  //
+  //  A launcher is a static icon + label that opens a URL, file, or app when
+  //  clicked. No command runs. Perfect for quick links and app shortcuts.
+  //
+  //  Install: copy into  %AppData%\Lintel\widgets\  — or use the "Upload widget"
+  //  button in the bar's Add-widget menu / Settings → Customization.
+  //  Comments (//) and trailing commas are allowed.
+  // ============================================================================
+
+  "key":   "gh-lintel",      // unique id
+  "name":  "Lintel repo",    // shown in the Add menu + tooltip
+  "type":  "launcher",       // "launcher" = static button, opens onClick
+
+  "icon":  "github",         // built-in key here; could also be an emoji like "🚀"
+                             // or raw SVG path data ("M12,2 L22,..."), or "" for none
+  "label": "Lintel",         // text next to the icon (use "" for icon-only)
+  "accent": "#FFE6E6EA",     // icon colour (#AARRGGBB)
+
+  "onClick": "https://github.com/voxelocity/Lintel"
+                             // a URL, a file path, or an .exe to launch
+}

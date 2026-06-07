@@ -18,12 +18,16 @@ public partial class SettingsPanel : UserControl
     private readonly AppSettings _settings;
     private int _selMode;
     private int _selTheme;
+    private bool _themeTouched;
 
     public double CurrentWidth { get; private set; } = QuickWidth;
 
     public event Action? SettingsApplied;
     public event Action? CloseRequested;
     public event Action<double>? WidthChanged;
+    public event Action? ImportThemeRequested;
+    public event Action? ImportWidgetRequested;
+    public event Action? OpenFolderRequested;
 
     public SettingsPanel(AppSettings settings)
     {
@@ -45,13 +49,15 @@ public partial class SettingsPanel : UserControl
     private void LoadFromSettings()
     {
         _selMode = (int)_settings.Mode;
-        // Resin (hidden fluid variant) maps onto Power.
-        _selTheme = _settings.Theme switch
+        _themeTouched = false;
+        // Highlight the matching built-in segment; a custom theme highlights none (-1).
+        _selTheme = (Widgets.Themes.NameOf(_settings)) switch
         {
-            LintelTheme.Power or LintelTheme.Resin => 1,
-            LintelTheme.Islands => 2,
-            LintelTheme.Mond => 3,
-            _ => 0
+            "Power" or "Resin" => 1,
+            "Islands" => 2,
+            "Mond" => 3,
+            "Squircles" => 0,
+            _ => -1
         };
         UpdateModeButtons();
         UpdateThemeButtons();
@@ -76,7 +82,12 @@ public partial class SettingsPanel : UserControl
         MonitorBox.Text = _settings.MonitorIndex.ToString();
         StartupChk.IsChecked = _settings.LaunchAtStartup;
         ClaudeLimitBox.Text = _settings.ClaudeTokenLimit.ToString();
+        CmdWidgetsChk.IsChecked = _settings.EnableCommandWidgets;
     }
+
+    private void ImportTheme_Click(object sender, RoutedEventArgs e) => ImportThemeRequested?.Invoke();
+    private void ImportWidget_Click(object sender, RoutedEventArgs e) => ImportWidgetRequested?.Invoke();
+    private void OpenFolderBtn_Click(object sender, RoutedEventArgs e) => OpenFolderRequested?.Invoke();
 
     private static readonly LintelTheme[] ThemeOrder =
         { LintelTheme.Squircles, LintelTheme.Power, LintelTheme.Islands, LintelTheme.Mond };
@@ -93,8 +104,15 @@ public partial class SettingsPanel : UserControl
     private void WriteAdvanced()
     {
         _settings.Mode = (VisibilityMode)_selMode;
-        _settings.Theme = ThemeOrder[Math.Clamp(_selTheme, 0, ThemeOrder.Length - 1)];
+        // Only override the theme if the user actually picked a built-in segment here —
+        // otherwise leave a custom (imported) theme selection intact.
+        if (_themeTouched && _selTheme >= 0)
+        {
+            _settings.Theme = ThemeOrder[Math.Clamp(_selTheme, 0, ThemeOrder.Length - 1)];
+            _settings.ThemeName = _settings.Theme.ToString();
+        }
         _settings.ClaudeTokenLimit = Math.Max(0, ParseL(ClaudeLimitBox.Text, _settings.ClaudeTokenLimit));
+        _settings.EnableCommandWidgets = CmdWidgetsChk.IsChecked == true;
         _settings.RevealHoldMs = ParseI(RevealHoldBox.Text, _settings.RevealHoldMs);
         _settings.HideDelayMs = ParseI(HideDelayBox.Text, _settings.HideDelayMs);
         _settings.TriggerZonePx = ParseI(TriggerZoneBox.Text, _settings.TriggerZonePx);
@@ -149,6 +167,7 @@ public partial class SettingsPanel : UserControl
     private void Theme_Click(object sender, RoutedEventArgs e)
     {
         _selTheme = int.Parse((string)((Button)sender).Tag);
+        _themeTouched = true;
         UpdateThemeButtons();
     }
 
