@@ -17,6 +17,7 @@ public sealed class ThemeDef
     public bool Acrylic;            // blur what's behind the bar
     public Color AcrylicTint;       // tint over the blur (A = tint strength)
     public bool AeroBlur;           // use the classic clearer Aero blur instead of frosted acrylic
+    public bool FrostedGlass;       // real blur via the (blurred) desktop wallpaper behind the bar
     public bool BottomHighlight;    // light hairline along the bottom edge
 
     public bool SeparatedZones;     // each zone is its own floating bar
@@ -55,6 +56,7 @@ public sealed class ThemeSpec
     public bool Acrylic { get; set; } = false;              // blur the desktop behind the bar
     public string AcrylicTint { get; set; } = "#B0202024";  // tint over the blur
     public bool AeroBlur { get; set; } = false;             // classic clearer Aero blur (vs frosted acrylic)
+    public bool FrostedGlass { get; set; } = false;         // real frosted glass via the blurred wallpaper
     public bool BottomHighlight { get; set; } = false;      // hairline along the bottom edge
     public bool SeparatedZones { get; set; } = false;       // left/center/right become floating pills
     public string ZoneBackground { get; set; } = "#E61C1C1E";
@@ -82,6 +84,7 @@ public sealed class ThemeSpec
         Acrylic = Acrylic,
         AcrylicTint = Col(AcrylicTint, Color.FromArgb(0xB0, 0x20, 0x20, 0x24)),
         AeroBlur = AeroBlur,
+        FrostedGlass = FrostedGlass,
         BottomHighlight = BottomHighlight,
         SeparatedZones = SeparatedZones,
         ZoneBackground = Col(ZoneBackground, Color.FromArgb(0xE6, 0x1C, 0x1C, 0x1E)),
@@ -127,6 +130,7 @@ public static class Themes
         IconSaturation = 0.5,
         Acrylic = true,
         AcrylicTint = Color.FromArgb(0xB0, 0x20, 0x20, 0x24),
+        FrostedGlass = true,
         BottomHighlight = true,
         FluidDropdowns = fluid,
         WidgetDividers = dividers
@@ -186,6 +190,7 @@ public static class Themes
         IconSaturation = 1.0,
         Acrylic = true,
         AeroBlur = true,
+        FrostedGlass = true,
         AcrylicTint = Color.FromArgb(0x6E, 0x0C, 0x12, 0x1E),   // translucent dark glass — desktop shows through
         DropdownColor = Color.FromArgb(0xF0, 0x12, 0x17, 0x22), // keep dropdowns readable
         BarHeight = 30,
@@ -207,6 +212,7 @@ public static class Themes
         IconSaturation = 1.0,
         Acrylic = true,
         AeroBlur = true,
+        FrostedGlass = true,
         AcrylicTint = Color.FromArgb(0x34, 0x9C, 0xC6, 0xF2),   // very translucent light blue — clear glass
         DropdownColor = Color.FromArgb(0xEC, 0x1B, 0x3A, 0x60), // readable dropdown panel
         BarHeight = 38,

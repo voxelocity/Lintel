@@ -65,13 +65,16 @@
 
     <Grid>
         <!-- The bar itself; slide transform reveals/conceals it from the top edge -->
-        <Border x:Name="BarRoot"
+        <Border x:Name="BarRoot" ClipToBounds="True"
                 Background="{Binding BarBackground, RelativeSource={RelativeSource AncestorType=Window}}">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="SlideTransform" Y="0"/>
             </Border.RenderTransform>
 
             <Grid>
+                <!-- Frosted glass: the blurred desktop wallpaper strip behind the bar -->
+                <Image x:Name="FrostImage" Stretch="Fill" IsHitTestVisible="False" Visibility="Collapsed"/>
+                <Border x:Name="FrostTint" IsHitTestVisible="False" Visibility="Collapsed"/>
                 <!-- Glossy reflection across the top half (Aero / Luna themes) -->
                 <Rectangle x:Name="GlossOverlay" VerticalAlignment="Stretch" IsHitTestVisible="False" Visibility="Collapsed"/>
                 <Grid x:Name="BarGrid" Margin="8,0">

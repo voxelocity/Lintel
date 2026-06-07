@@ -154,12 +154,22 @@ public partial class MainWindow : Window, IWidgetHost
         ApplySettings();
         ApplyMode(initial: true);
 
+        // Keep the frosted-glass backdrop in sync when the wallpaper / theme colours change.
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+
         _clock.Start();
         _tick.Start();
     }
 
+    private void OnUserPreferenceChanged(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category is Microsoft.Win32.UserPreferenceCategory.Desktop or Microsoft.Win32.UserPreferenceCategory.General)
+            Dispatcher.BeginInvoke(new Action(() => ApplyFrost(Themes.Resolve(_settings))));
+    }
+
     protected override void OnClosed(EventArgs e)
     {
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         _tick.Stop();
         _clock.Stop();
         _perf?.Dispose();
@@ -257,6 +267,34 @@ public partial class MainWindow : Window, IWidgetHost
         ApplyZoneStyle(theme);
         ApplyLayout();
         ApplyBackdrop(_shown && _backdrop);
+        ApplyFrost(theme);
+    }
+
+    /// <summary>Frosted-glass backdrop: blur the desktop wallpaper strip behind the bar.</summary>
+    private void ApplyFrost(ThemeDef theme)
+    {
+        if (theme.FrostedGlass && !theme.SeparatedZones)
+        {
+            var strip = WallpaperFrost.BuildStrip(_monitorBounds.Width, _monitorBounds.Height, _barHeightPx);
+            if (strip != null)
+            {
+                FrostImage.Source = strip;
+                FrostImage.Effect = new System.Windows.Media.Effects.BlurEffect
+                {
+                    Radius = 26,
+                    KernelType = System.Windows.Media.Effects.KernelType.Gaussian,
+                    RenderingBias = System.Windows.Media.Effects.RenderingBias.Performance
+                };
+                FrostImage.Visibility = Visibility.Visible;
+                FrostTint.Background = new SolidColorBrush(_backdropTint);
+                FrostTint.Visibility = Visibility.Visible;
+                BarBackground = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));   // let the frost show through
+                return;
+            }
+        }
+        FrostImage.Visibility = Visibility.Collapsed;
+        FrostImage.Source = null;
+        FrostTint.Visibility = Visibility.Collapsed;
     }
 
     private void ApplyZoneStyle(ThemeDef theme)
