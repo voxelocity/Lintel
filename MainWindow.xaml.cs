@@ -184,6 +184,8 @@ public partial class MainWindow : Window, IWidgetHost
 
     private bool _backdrop;
     private bool _frosted;                     // theme uses the live-blur frosted glass
+    private bool _potato;                      // low-end mode: no blur, reduced animation
+    private DropdownChrome _chrome;            // OS-window styling for dropdowns
     private bool _backdropAero;                // classic Aero blur vs frosted acrylic
     private bool _useOsBlur = false;           // OS blur is unreliable on Win11 → use translucency
     private Color _backdropTint;
@@ -203,8 +205,11 @@ public partial class MainWindow : Window, IWidgetHost
     public void ApplySettings()
     {
         var theme = Themes.Resolve(_settings);
+        _potato = _settings.PotatoMode;
+        _chrome = theme.Chrome;
         _effectiveBarHeight = theme.BarHeight ?? _settings.BarHeight;
-        _frosted = theme.FrostedGlass && !theme.SeparatedZones && _settings.LiveBlur;
+        _frosted = theme.FrostedGlass && !theme.SeparatedZones && _settings.LiveBlur && !_potato;
+        Controls.AnimatedBarPanel.AnimationsEnabled = !_potato;
         _backdrop = theme.Acrylic;
         _backdropAero = theme.AeroBlur;
         _backdropTint = theme.AcrylicTint;
@@ -240,7 +245,7 @@ public partial class MainWindow : Window, IWidgetHost
         Foreground = BrushFrom(_settings.ForegroundColor, Color.FromArgb(0xFF, 0xF2, 0xF2, 0xF7));
 
         // Glossy reflection across the top half (Aero / Luna).
-        if (theme.GlossStrength > 0)
+        if (theme.GlossStrength > 0 && !_potato)
         {
             GlossOverlay.Fill = GlossBrush(theme.GlossStrength);
             GlossOverlay.Visibility = Visibility.Visible;
@@ -284,7 +289,7 @@ public partial class MainWindow : Window, IWidgetHost
 
         // Preferred: custom real-time blur — capture the live content behind the bar (the bar excludes
         // itself from capture) and blur it. Tracks live windows; the blur amount is ours to control.
-        if (wantGlass && _settings.LiveBlur)
+        if (wantGlass && _settings.LiveBlur && !_potato)
         {
             StartLiveBlur(true);
             FrostImage.Effect = LiveBlurEffect();
@@ -367,6 +372,20 @@ public partial class MainWindow : Window, IWidgetHost
                 zone.Margin = new Thickness(0);
                 zone.Effect = null;
                 zone.Visibility = Visibility.Visible;
+            }
+
+            // XP: a green "Start area" island layered over the left zone.
+            if (theme.LeftIslandTop is Color gtop)
+            {
+                var gbot = theme.LeftIslandBottom ?? gtop;
+                var grad = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+                grad.GradientStops.Add(new GradientStop(gtop, 0));
+                grad.GradientStops.Add(new GradientStop(gbot, 1));
+                grad.Freeze();
+                ZoneLeft.Background = grad;
+                ZoneLeft.CornerRadius = new CornerRadius(0, 9, 9, 0);   // rounded right edge, like the Start bump
+                ZoneLeft.Padding = new Thickness(12, 0, 16, 0);
+                ZoneLeft.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 8, ShadowDepth = 0, Opacity = 0.5, Color = Colors.Black };
             }
         }
     }
@@ -640,7 +659,7 @@ public partial class MainWindow : Window, IWidgetHost
         if (_blurTimer != null) { if (show) { _blurTimer.Start(); CaptureBlurFrame(); } else _blurTimer.Stop(); }
 
         double target = show ? 0 : -_effectiveBarHeight;
-        int ms = animate ? _settings.AnimationMs : 0;
+        int ms = (animate && !_potato) ? _settings.AnimationMs : 0;
 
         if (ms <= 0)
         {
@@ -972,6 +991,14 @@ public partial class MainWindow : Window, IWidgetHost
     private void GrowFromTop(ScaleTransform scale, FrameworkElement card)
     {
         card.RenderTransformOrigin = new Point(0.5, 0);
+        if (_potato)
+        {
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            scale.ScaleX = scale.ScaleY = 1;
+            card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(60)));
+            return;
+        }
         if (_fluid)
         {
             // Springy Dynamic-Island-style emergence.
@@ -1081,6 +1108,10 @@ public partial class MainWindow : Window, IWidgetHost
         stroke?.Freeze();
         var shadow = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black };
 
+        // OS-window chrome (XP Luna / Vista Aero) — a fake title bar + buttons styled like that OS.
+        if (_chrome == DropdownChrome.Luna) return BuildLunaCard(content, padding, shadow);
+        if (_chrome == DropdownChrome.Aero) return BuildAeroCard(content, padding, shadow);
+
         // Frosted themes: a live-blurred backdrop behind the card + a translucent theme tint, clipped
         // to the rounded corners. The blur capture is filled in once the popup is positioned.
         if (_frosted && !_shoulder)
@@ -1121,6 +1152,127 @@ public partial class MainWindow : Window, IWidgetHost
             CornerRadius = new CornerRadius(14),
             Padding = padding,
             Child = content,
+            Effect = shadow
+        };
+    }
+
+    // ---- OS-window chrome for dropdowns ----
+
+    private static Brush VGrad(params (Color c, double at)[] stops)
+    {
+        var b = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+        foreach (var (c, at) in stops) b.GradientStops.Add(new GradientStop(c, at));
+        b.Freeze(); return b;
+    }
+
+    private static Border WinButton(Color top, Color bottom, UIElement glyph) => new()
+    {
+        Width = 21, Height = 17, Margin = new Thickness(2, 0, 0, 0),
+        CornerRadius = new CornerRadius(3),
+        BorderBrush = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)), BorderThickness = new Thickness(0.8),
+        Background = VGrad((top, 0), (bottom, 1)),
+        Child = glyph
+    };
+
+    private static UIElement WinButtons(bool aero)
+    {
+        Color bt = aero ? Color.FromArgb(0x70, 0x60, 0x70, 0x90) : Color.FromRgb(0x4A, 0x8C, 0xF0);
+        Color bb = aero ? Color.FromArgb(0x70, 0x20, 0x28, 0x3A) : Color.FromRgb(0x1C, 0x55, 0xCE);
+        var min = new System.Windows.Shapes.Rectangle { Width = 7, Height = 2, Fill = Brushes.White, VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 3) };
+        var max = new Border { Width = 8, Height = 7, BorderBrush = Brushes.White, BorderThickness = new Thickness(1.4, 2, 1.4, 1.4) };
+        var close = new System.Windows.Shapes.Path { Data = Geometry.Parse("M0,0 L7,7 M7,0 L0,7"), Stroke = Brushes.White, StrokeThickness = 1.6, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 5, 0) };
+        row.Children.Add(WinButton(bt, bb, min));
+        row.Children.Add(WinButton(bt, bb, max));
+        row.Children.Add(WinButton(Color.FromRgb(0xE8, 0x6A, 0x52), Color.FromRgb(0xC0, 0x30, 0x20), close));   // red close
+        return row;
+    }
+
+    private UIElement TitleBarContent(bool aero)
+    {
+        var dock = new DockPanel { LastChildFill = false };
+        var buttons = WinButtons(aero);
+        DockPanel.SetDock((UIElement)buttons, Dock.Right);
+        dock.Children.Add(buttons);
+        var title = new TextBlock { Text = "Lintel", Foreground = Brushes.White, FontSize = 12, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(9, 0, 0, 0) };
+        if (aero) title.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 4, ShadowDepth = 0, Opacity = 0.8, Color = Colors.Black };
+        DockPanel.SetDock(title, Dock.Left);
+        dock.Children.Add(title);
+        return dock;
+    }
+
+    // Windows XP Luna window: blue title bar + buttons, blue frame, solid body.
+    private FrameworkElement BuildLunaCard(UIElement content, Thickness padding, System.Windows.Media.Effects.Effect shadow)
+    {
+        var titleBar = new Border
+        {
+            Height = 27,
+            CornerRadius = new CornerRadius(6, 6, 0, 0),
+            Background = VGrad((Color.FromRgb(0x4B, 0x8E, 0xF7), 0), (Color.FromRgb(0x2C, 0x6B, 0xE8), 0.45), (Color.FromRgb(0x12, 0x4C, 0xD2), 0.55), (Color.FromRgb(0x2A, 0x63, 0xE0), 1)),
+            Child = TitleBarContent(aero: false)
+        };
+        var body = new Border { Background = new SolidColorBrush(_dropMaterial), Padding = padding, Child = content };
+
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        Grid.SetRow(titleBar, 0); Grid.SetRow(body, 1);
+        grid.Children.Add(titleBar); grid.Children.Add(body);
+
+        return new Border
+        {
+            CornerRadius = new CornerRadius(8, 8, 3, 3),
+            Background = new SolidColorBrush(Color.FromRgb(0x0E, 0x4C, 0xCE)),   // XP blue frame
+            Padding = new Thickness(3, 0, 3, 3),
+            ClipToBounds = true,
+            Child = grid,
+            Effect = shadow
+        };
+    }
+
+    // Windows Vista Aero window: glassy translucent title bar (over the live blur) + frosted body.
+    private FrameworkElement BuildAeroCard(UIElement content, Thickness padding, System.Windows.Media.Effects.Effect shadow)
+    {
+        const double R = 9;
+        var d = _dropMaterial;
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        // Base: live-blur frost behind the whole window (if enabled), else solid dark glass.
+        if (_frosted)
+        {
+            var frost = new Border { CornerRadius = new CornerRadius(R) };
+            Grid.SetRowSpan(frost, 2);
+            grid.Children.Add(frost);
+            _pendingFrost = frost;
+        }
+        else
+        {
+            var solid = new Border { CornerRadius = new CornerRadius(R), Background = new SolidColorBrush(_dropMaterial) };
+            Grid.SetRowSpan(solid, 2);
+            grid.Children.Add(solid);
+        }
+
+        // Title bar: translucent glass gradient + a glossy top highlight.
+        var titleGlass = new Grid { Height = 30 };
+        titleGlass.Children.Add(new Border { CornerRadius = new CornerRadius(R, R, 0, 0), Background = VGrad((Color.FromArgb(0x9A, 0x28, 0x30, 0x42), 0), (Color.FromArgb(0x70, 0x10, 0x16, 0x22), 1)) });
+        titleGlass.Children.Add(new Border { CornerRadius = new CornerRadius(R, R, 0, 0), Background = VGrad((Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF), 0), (Color.FromArgb(0x10, 0xFF, 0xFF, 0xFF), 0.5), (Color.FromArgb(0x00, 0xFF, 0xFF, 0xFF), 0.52)) });
+        titleGlass.Children.Add(TitleBarContent(aero: true));
+        Grid.SetRow(titleGlass, 0);
+        grid.Children.Add(titleGlass);
+
+        // Body: translucent tint (so the blur shows) + content.
+        var bodyTint = new Border { Background = new SolidColorBrush(Color.FromArgb((byte)(_frosted ? 0xA6 : 0xFF), d.R, d.G, d.B)), Padding = padding, Child = content };
+        Grid.SetRow(bodyTint, 1);
+        grid.Children.Add(bodyTint);
+
+        return new Border
+        {
+            CornerRadius = new CornerRadius(R),
+            ClipToBounds = true,
+            BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)), BorderThickness = new Thickness(1),
+            Child = grid,
             Effect = shadow
         };
     }

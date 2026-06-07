@@ -84,6 +84,7 @@ public partial class SettingsPanel : UserControl
         ClaudeLimitBox.Text = _settings.ClaudeTokenLimit.ToString();
         CmdWidgetsChk.IsChecked = _settings.EnableCommandWidgets;
         LiveBlurChk.IsChecked = _settings.LiveBlur;
+        PotatoChk.IsChecked = _settings.PotatoMode;
     }
 
     private void ImportTheme_Click(object sender, RoutedEventArgs e) => ImportThemeRequested?.Invoke();
@@ -115,6 +116,7 @@ public partial class SettingsPanel : UserControl
         _settings.ClaudeTokenLimit = Math.Max(0, ParseL(ClaudeLimitBox.Text, _settings.ClaudeTokenLimit));
         _settings.EnableCommandWidgets = CmdWidgetsChk.IsChecked == true;
         _settings.LiveBlur = LiveBlurChk.IsChecked == true;
+        _settings.PotatoMode = PotatoChk.IsChecked == true;
         _settings.RevealHoldMs = ParseI(RevealHoldBox.Text, _settings.RevealHoldMs);
         _settings.HideDelayMs = ParseI(HideDelayBox.Text, _settings.HideDelayMs);
         _settings.TriggerZonePx = ParseI(TriggerZoneBox.Text, _settings.TriggerZonePx);

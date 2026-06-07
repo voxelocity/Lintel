@@ -28,6 +28,9 @@ public sealed class AnimatedBarPanel : Panel
     /// <summary>An element that should not be auto-animated (because it's being dragged).</summary>
     public UIElement? DragExempt { get; set; }
 
+    /// <summary>Global toggle — Potato mode turns the reflow animation off.</summary>
+    public static bool AnimationsEnabled = true;
+
     private readonly Dictionary<UIElement, double> _lastX = new();
 
     protected override Size MeasureOverride(Size availableSize)
@@ -84,6 +87,14 @@ public sealed class AnimatedBarPanel : Panel
     private void AnimateToSlot(UIElement child, double newX)
     {
         var tt = EnsureTransform(child);
+
+        if (!AnimationsEnabled)
+        {
+            tt.BeginAnimation(TranslateTransform.XProperty, null);
+            tt.X = 0;
+            _lastX[child] = newX;
+            return;
+        }
 
         if (_lastX.TryGetValue(child, out double oldX))
         {

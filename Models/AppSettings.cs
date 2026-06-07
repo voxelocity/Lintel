@@ -111,6 +111,9 @@ public sealed class AppSettings
     /// bar from screen capture/recording (needed to avoid a feedback loop). Off → blurred-wallpaper instead.</summary>
     public bool LiveBlur { get; set; } = true;
 
+    /// <summary>Low-end machines: turn off the blur effects and reduce animations.</summary>
+    public bool PotatoMode { get; set; } = false;
+
     /// <summary>Open widget dropdowns on hover (true) or on click (false).</summary>
     public bool OpenOnHover { get; set; } = true;
 

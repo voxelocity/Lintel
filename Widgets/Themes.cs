@@ -4,6 +4,9 @@ using Lintel.Models;
 
 namespace Lintel.Widgets;
 
+/// <summary>OS-window styling applied to dropdown cards.</summary>
+public enum DropdownChrome { None, Luna, Aero }
+
 /// <summary>Visual parameters that distinguish a theme (the resolved, ready-to-use form).</summary>
 public sealed class ThemeDef
 {
@@ -38,6 +41,10 @@ public sealed class ThemeDef
     public Color? BubbleBorder;     // raised-button outline drawn around each widget
     public double BubbleBorderThickness = 1;
     public double BubbleGloss;      // 0 = none; glossy sheen on each widget bubble
+
+    public DropdownChrome Chrome;   // OS-window styling for dropdowns (XP Luna / Vista Aero)
+    public Color? LeftIslandTop;    // coloured island over the LEFT zone (e.g. XP's green Start area)
+    public Color? LeftIslandBottom;
 }
 
 /// <summary>
@@ -177,6 +184,9 @@ public static class Themes
         FontFamily = "Tahoma",
         BubbleBorder = Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF),
         BubbleGloss = 0.5,
+        Chrome = DropdownChrome.Luna,
+        LeftIslandTop = Color.FromRgb(0x7A, 0xB8, 0x4A),     // Luna green (XP Start area)
+        LeftIslandBottom = Color.FromRgb(0x4E, 0x8A, 0x1F),
     };
 
     // Windows Vista Aero: smoky translucent black glass (clear Aero blur) with a glossy reflection.
@@ -199,6 +209,7 @@ public static class Themes
         FontFamily = "Segoe UI",
         BubbleBorder = Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF),
         BubbleGloss = 0.30,
+        Chrome = DropdownChrome.Aero,
     };
 
     // Windows 7 Aero: thin, very see-through dark glass with a soft blur and minimal gloss.

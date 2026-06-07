@@ -244,7 +244,8 @@
 
                         <TextBlock Text="CUSTOMIZATION" Style="{StaticResource Section}"/>
                         <CheckBox x:Name="CmdWidgetsChk" Content="Allow command widgets to run their commands" Margin="0,2,0,4"/>
-                        <CheckBox x:Name="LiveBlurChk" Content="Live glass blur (frosted themes; hides the bar from screen capture)" Margin="0,2,0,8"/>
+                        <CheckBox x:Name="LiveBlurChk" Content="Live glass blur (frosted themes; hides the bar from screen capture)" Margin="0,2,0,4"/>
+                        <CheckBox x:Name="PotatoChk" Content="Potato mode (low-end PCs: no blur, reduced animations)" Margin="0,2,0,8"/>
                         <StackPanel Orientation="Horizontal">
                             <Button Content="Import theme…"  Style="{StaticResource Pill}" Margin="0,0,8,0" Click="ImportTheme_Click"/>
                             <Button Content="Import widget…" Style="{StaticResource Pill}" Margin="0,0,8,0" Click="ImportWidget_Click"/>
