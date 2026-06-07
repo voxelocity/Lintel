@@ -26,7 +26,7 @@
   "acrylic": true,             // translucent bar (the tint's AA controls how see-through it is)
   "acrylicTint": "#B0241814",  // tint colour — LOWER the AA for clearer glass
   "aeroBlur": false,           // (legacy OS blur; ignored on Win11 where it doesn't work)
-  "frostedGlass": true,        // REAL frosted glass: blurs the desktop wallpaper behind the bar
+  "frostedGlass": true,        // REAL frosted glass: live DWM acrylic blur on Win11 (blurred-wallpaper fallback on Win10)
 
   "bottomHighlight": true,     // thin light hairline along the bar's bottom edge
   "widgetDividers": false,     // draw a subtle divider between every widget

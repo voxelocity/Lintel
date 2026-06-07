@@ -170,6 +170,7 @@ public partial class MainWindow : Window, IWidgetHost
     protected override void OnClosed(EventArgs e)
     {
         Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+        try { _backdropWindow?.Close(); } catch { }
         _tick.Stop();
         _clock.Stop();
         _perf?.Dispose();
@@ -270,10 +271,29 @@ public partial class MainWindow : Window, IWidgetHost
         ApplyFrost(theme);
     }
 
-    /// <summary>Frosted-glass backdrop: blur the desktop wallpaper strip behind the bar.</summary>
+    private BackdropWindow? _backdropWindow;
+    private static bool DwmAcrylicSupported => Environment.OSVersion.Version.Build >= 22000;   // Win11+
+
+    /// <summary>
+    /// Frosted glass. Preferred: a real-time DWM acrylic backdrop window behind the bar (Win11).
+    /// Fallback: a blurred snapshot of the desktop wallpaper.
+    /// </summary>
     private void ApplyFrost(ThemeDef theme)
     {
-        if (theme.FrostedGlass && !theme.SeparatedZones)
+        bool wantGlass = theme.FrostedGlass && !theme.SeparatedZones;
+
+        if (wantGlass && DwmAcrylicSupported && EnsureBackdrop(true))
+        {
+            FrostImage.Visibility = Visibility.Collapsed; FrostImage.Source = null;
+            FrostTint.Background = new SolidColorBrush(_backdropTint);   // theme tint over the live blur
+            FrostTint.Visibility = Visibility.Visible;
+            BarBackground = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
+            PositionBackdrop();
+            return;
+        }
+        EnsureBackdrop(false);
+
+        if (wantGlass)
         {
             var strip = WallpaperFrost.BuildStrip(_monitorBounds.Width, _monitorBounds.Height, _barHeightPx);
             if (strip != null)
@@ -288,13 +308,47 @@ public partial class MainWindow : Window, IWidgetHost
                 FrostImage.Visibility = Visibility.Visible;
                 FrostTint.Background = new SolidColorBrush(_backdropTint);
                 FrostTint.Visibility = Visibility.Visible;
-                BarBackground = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));   // let the frost show through
+                BarBackground = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
                 return;
             }
         }
         FrostImage.Visibility = Visibility.Collapsed;
         FrostImage.Source = null;
         FrostTint.Visibility = Visibility.Collapsed;
+    }
+
+    private bool EnsureBackdrop(bool wanted)
+    {
+        if (wanted)
+        {
+            if (_backdropWindow == null)
+            {
+                try { _backdropWindow = new BackdropWindow(); _backdropWindow.Show(); }
+                catch { _backdropWindow = null; return false; }
+            }
+            ShowBackdrop(_shown);
+            return true;
+        }
+        if (_backdropWindow != null) { try { _backdropWindow.Close(); } catch { } _backdropWindow = null; }
+        return false;
+    }
+
+    private void ShowBackdrop(bool show)
+    {
+        if (_backdropWindow == null) return;
+        _backdropWindow.Visibility = show ? Visibility.Visible : Visibility.Hidden;
+        if (show) PositionBackdrop();
+    }
+
+    private void PositionBackdrop()
+    {
+        if (_backdropWindow == null || _backdropWindow.Handle == IntPtr.Zero) return;
+        _backdropWindow.Left = Left;
+        _backdropWindow.Top = Top + SlideTransform.Y;   // follow the slide so it never peeks past the bar
+        _backdropWindow.Width = Width;
+        _backdropWindow.Height = Height;
+        // sit directly beneath the bar in the topmost band
+        SetWindowPos(_backdropWindow.Handle, _hwnd, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
 
     private void ApplyZoneStyle(ThemeDef theme)
@@ -371,6 +425,7 @@ public partial class MainWindow : Window, IWidgetHost
         SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
         if (!_shown) SlideTransform.Y = -_effectiveBarHeight;
+        if (_backdropWindow != null && _shown) PositionBackdrop();
     }
 
     public void ApplyMode(bool initial = false)
@@ -580,8 +635,11 @@ public partial class MainWindow : Window, IWidgetHost
         return false;
     }
 
-    private void ReassertTopmost() =>
+    private void ReassertTopmost()
+    {
         SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        if (_backdropWindow != null && _shown) PositionBackdrop();   // keep the acrylic just under the bar
+    }
 
     // =========================================================== show/hide
 
@@ -590,6 +648,7 @@ public partial class MainWindow : Window, IWidgetHost
         _shown = show;
         SetClickThrough(!show);
         if (_backdrop) ApplyBackdrop(show);
+        ShowBackdrop(show);
 
         double target = show ? 0 : -_effectiveBarHeight;
         int ms = animate ? _settings.AnimationMs : 0;
