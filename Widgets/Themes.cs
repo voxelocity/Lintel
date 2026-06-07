@@ -213,11 +213,12 @@ public static class Themes
         Acrylic = true,
         AeroBlur = true,
         FrostedGlass = true,
-        AcrylicTint = Color.FromArgb(0x30, 0x10, 0x16, 0x20),   // dark, very translucent — wallpaper shows through
-        DropdownColor = Color.FromArgb(0xEC, 0x16, 0x1B, 0x24), // readable dropdown panel
+        AcrylicTint = Color.FromArgb(0x34, 0x12, 0x1C, 0x32),   // dark blue, very translucent — wallpaper shows through
+        DropdownColor = Color.FromArgb(0xEC, 0x14, 0x1E, 0x30), // readable dropdown panel
         BarHeight = 38,
         GlossStrength = 0.12,                                   // just a hint of sheen, not a gradient
         TopEdge = Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF),
+        BottomEdge = Color.FromArgb(0x4A, 0xFF, 0xFF, 0xFF),    // glassy highlight line along the bottom
         FontFamily = "Segoe UI",
         BubbleBorder = Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF),
         BubbleGloss = 0.16,

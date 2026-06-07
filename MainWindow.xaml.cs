@@ -182,7 +182,7 @@ public partial class MainWindow : Window, IWidgetHost
 
     private bool _backdrop;
     private bool _backdropAero;                // classic Aero blur vs frosted acrylic
-    private const bool _useOsBlur = false;     // OS blur is unreliable on Win11 → use translucency
+    private bool _useOsBlur = false;           // OS blur is unreliable on Win11 → use translucency
     private Color _backdropTint;
     private double _effectiveBarHeight = 32;   // theme height override, or the user's setting
 
