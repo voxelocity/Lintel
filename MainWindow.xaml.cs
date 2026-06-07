@@ -193,7 +193,8 @@ public partial class MainWindow : Window, IWidgetHost
 
         // Dropdowns share the bar's material. Acrylic themes use a translucent tint so the
         // dropdown reads like the bar (vector-drawn, so corners stay clean).
-        _dropMaterial = theme.SeparatedZones ? theme.ZoneBackground
+        _dropMaterial = theme.DropdownColor is Color dropCol ? dropCol
+            : theme.SeparatedZones ? theme.ZoneBackground
             : theme.Acrylic ? Color.FromArgb(0xDC, theme.AcrylicTint.R, theme.AcrylicTint.G, theme.AcrylicTint.B)
             : ParseColor(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E), 0xF6);
         _dropOutline = theme.BottomHighlight ? Color.FromArgb(0x2A, 0xFF, 0xFF, 0xFF)
@@ -201,12 +202,15 @@ public partial class MainWindow : Window, IWidgetHost
             : (Color?)null;
 
         // Islands: transparent bar with floating zone pills (gaps show desktop).
-        // Acrylic: near-transparent (hit-testable) so the blur shows. Else: solid colour.
+        // Acrylic: near-transparent (hit-testable) so the blur shows.
+        // Gradient (e.g. Windows XP): a solid vertical gradient. Else: solid colour.
         BarBackground = theme.SeparatedZones
             ? new SolidColorBrush(Color.FromArgb(0x00, 0, 0, 0))
             : _backdrop
                 ? new SolidColorBrush(Color.FromArgb(0x01, 0, 0, 0))
-                : BrushFrom(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E));
+                : theme is { BarTop: Color top, BarBottom: Color bottom }
+                    ? VerticalGradient(top, bottom)
+                    : BrushFrom(_settings.BackgroundColor, Color.FromArgb(0xF0, 0x1C, 0x1C, 0x1E));
         Foreground = BrushFrom(_settings.ForegroundColor, Color.FromArgb(0xFF, 0xF2, 0xF2, 0xF7));
 
         BottomLine.Visibility = theme.BottomHighlight ? Visibility.Visible : Visibility.Collapsed;
@@ -1835,6 +1839,18 @@ public partial class MainWindow : Window, IWidgetHost
     public void ToggleCustomizeFromTray() => ToggleCustomize();
 
     // =========================================================== helpers
+
+    private static Brush VerticalGradient(Color top, Color bottom)
+    {
+        var b = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0),
+            EndPoint = new Point(0, 1),
+            GradientStops = { new GradientStop(top, 0), new GradientStop(bottom, 1) }
+        };
+        b.Freeze();
+        return b;
+    }
 
     private static SolidColorBrush BrushFrom(string hex, Color fallback)
     {

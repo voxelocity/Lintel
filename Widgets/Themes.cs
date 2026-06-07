@@ -22,6 +22,10 @@ public sealed class ThemeDef
     public Color ZoneBackground;    // background of each floating zone (Islands)
     public bool FluidDropdowns;     // springy Dynamic-Island-style menus
     public bool WidgetDividers;     // thin separators drawn between widgets (Mond)
+
+    public Color? BarTop;           // optional vertical bar gradient, top colour …
+    public Color? BarBottom;        // … and bottom colour (e.g. the Windows XP Luna bar)
+    public Color? DropdownColor;    // optional explicit dropdown material (overrides the default)
 }
 
 /// <summary>
@@ -43,6 +47,9 @@ public sealed class ThemeSpec
     public bool SeparatedZones { get; set; } = false;       // left/center/right become floating pills
     public string ZoneBackground { get; set; } = "#E61C1C1E";
     public bool WidgetDividers { get; set; } = false;       // draw a divider between every widget
+    public string BarTop { get; set; } = "";                // optional bar gradient top colour ("" = none)
+    public string BarBottom { get; set; } = "";             // optional bar gradient bottom colour
+    public string DropdownColor { get; set; } = "";         // optional explicit dropdown background ("" = auto)
 
     public ThemeDef ToDef() => new()
     {
@@ -57,12 +64,21 @@ public sealed class ThemeSpec
         BottomHighlight = BottomHighlight,
         SeparatedZones = SeparatedZones,
         ZoneBackground = Col(ZoneBackground, Color.FromArgb(0xE6, 0x1C, 0x1C, 0x1E)),
-        WidgetDividers = WidgetDividers
+        WidgetDividers = WidgetDividers,
+        BarTop = NullCol(BarTop),
+        BarBottom = NullCol(BarBottom),
+        DropdownColor = NullCol(DropdownColor)
     };
 
     private static Color Col(string hex, Color fallback)
     {
         try { return (Color)ColorConverter.ConvertFromString(hex); } catch { return fallback; }
+    }
+
+    private static Color? NullCol(string hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return null;
+        try { return (Color)ColorConverter.ConvertFromString(hex); } catch { return null; }
     }
 }
 
@@ -109,19 +125,66 @@ public static class Themes
         ZoneBackground = Color.FromArgb(0xE6, 0x1C, 0x1C, 0x1E),
     };
 
+    // Windows XP "Luna Blue": a solid glossy blue gradient bar, bright icons.
+    private static ThemeDef WinXP() => new()
+    {
+        BubbleIdle = Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x46, 0xFF, 0xFF, 0xFF),
+        CornerRadius = 4,
+        Padding = new Thickness(8, 0, 8, 0),
+        Spacing = 6,
+        IconSaturation = 1.0,
+        BarTop = Color.FromRgb(0x3C, 0x81, 0xF3),       // light Luna blue
+        BarBottom = Color.FromRgb(0x16, 0x46, 0xC4),    // deep Luna blue
+        DropdownColor = Color.FromArgb(0xF2, 0x1E, 0x52, 0xB0),
+        BottomHighlight = true,
+    };
+
+    // Windows Vista Aero: dark translucent glass (heavy blur), glossy highlight.
+    private static ThemeDef WinVista() => new()
+    {
+        BubbleIdle = Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF),
+        CornerRadius = 6,
+        Padding = new Thickness(8, 0, 8, 0),
+        Spacing = 5,
+        IconSaturation = 1.0,
+        Acrylic = true,
+        AcrylicTint = Color.FromArgb(0xC2, 0x0C, 0x12, 0x1E),
+        BottomHighlight = true,
+    };
+
+    // Windows 7 Aero: lighter blue-tinted glass.
+    private static ThemeDef Win7() => new()
+    {
+        BubbleIdle = Color.FromArgb(0x20, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x3C, 0xFF, 0xFF, 0xFF),
+        CornerRadius = 6,
+        Padding = new Thickness(8, 0, 8, 0),
+        Spacing = 5,
+        IconSaturation = 1.0,
+        Acrylic = true,
+        AcrylicTint = Color.FromArgb(0xAE, 0x29, 0x4A, 0x78),
+        BottomHighlight = true,
+    };
+
     // Built-in themes, resolved as a function of the user's squircle-corner setting.
     private static readonly Dictionary<string, Func<double, ThemeDef>> BuiltIns =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["Squircles"] = SquirclesLike,
-            ["Power"]     = _ => PowerLike(false),
-            ["Islands"]   = _ => IslandsDef(),
-            ["Mond"]      = _ => PowerLike(false, dividers: true),
-            ["Resin"]     = _ => PowerLike(false),   // hidden alias kept for back-compat
+            ["Squircles"]     = SquirclesLike,
+            ["Power"]         = _ => PowerLike(false),
+            ["Islands"]       = _ => IslandsDef(),
+            ["Mond"]          = _ => PowerLike(false, dividers: true),
+            ["Windows XP"]    = _ => WinXP(),
+            ["Windows Vista"] = _ => WinVista(),
+            ["Windows 7"]     = _ => Win7(),
+            ["Resin"]         = _ => PowerLike(false),   // hidden alias kept for back-compat
         };
 
     /// <summary>Built-in themes shown in the picker, in order.</summary>
-    public static readonly string[] BuiltInOrder = { "Squircles", "Power", "Islands", "Mond" };
+    public static readonly string[] BuiltInOrder =
+        { "Squircles", "Power", "Islands", "Mond", "Windows XP", "Windows Vista", "Windows 7" };
 
     private static Dictionary<string, ThemeSpec> _custom = new(StringComparer.OrdinalIgnoreCase);
 

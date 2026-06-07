@@ -8,6 +8,7 @@ A macOS / Linux-style **top bar for Windows 11** with a fluid, Dynamic Island-st
 
 ### [⬇️ Download the installer](https://github.com/voxelocity/Lintel/raw/main/installer/LintelSetup.exe)
 
+🔊 **[Listen to the Lintel ad](docs/lintelad.wav)**
 
 </div>
 
@@ -62,6 +63,11 @@ Switch from the customize pill (theme button) or **Advanced settings → Theme**
 - **Power** — flat, PowerToys-style: acrylic blur behind the bar, a bottom highlight hairline, muted (desaturated) icons.
 - **Islands** — each zone (left / center / right) is its own floating rounded bar with gaps between them, and fluid dropdowns.
 - **Mond** — like Power, with subtle vertical **dividers between every widget**.
+- **Windows XP** — the glossy **Luna blue** gradient bar with bright, full-colour icons.
+- **Windows Vista** — dark **Aero glass**: heavy blur with a glossy highlight.
+- **Windows 7** — lighter, blue-tinted **Aero glass**.
+
+(Plus any custom themes you add — see below.)
 
 **Dropdowns open on hover by default** (toggle to click in Quick Settings). A gauge shows a **history graph whose style matches the metric** (smooth area for CPU/RAM/GPU, bars for Disk/Network, a line for Battery), live min / avg / max, **and the top processes using that resource**. Dropdowns grow open and shrink closed, themed to match the bar.
 
