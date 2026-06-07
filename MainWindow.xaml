@@ -72,8 +72,14 @@
             </Border.RenderTransform>
 
             <Grid>
-                <!-- Frosted glass: the blurred desktop wallpaper strip behind the bar -->
-                <Image x:Name="FrostImage" Stretch="Fill" IsHitTestVisible="False" Visibility="Collapsed"/>
+                <!-- Frosted glass: the blurred live strip behind the bar. Slightly overscanned so the
+                     blur's soft edges fall outside the bar (clipped) instead of leaving a sharp sliver. -->
+                <Image x:Name="FrostImage" Stretch="Fill" IsHitTestVisible="False" Visibility="Collapsed"
+                       RenderTransformOrigin="0.5,0.5">
+                    <Image.RenderTransform>
+                        <ScaleTransform ScaleX="1.06" ScaleY="1.5"/>
+                    </Image.RenderTransform>
+                </Image>
                 <Border x:Name="FrostTint" IsHitTestVisible="False" Visibility="Collapsed"/>
                 <!-- Glossy reflection across the top half (Aero / Luna themes) -->
                 <Rectangle x:Name="GlossOverlay" VerticalAlignment="Stretch" IsHitTestVisible="False" Visibility="Collapsed"/>

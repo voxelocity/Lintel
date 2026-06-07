@@ -129,7 +129,7 @@ public static class Themes
         Spacing = dividers ? 12 : 8,
         IconSaturation = 0.5,
         Acrylic = true,
-        AcrylicTint = Color.FromArgb(0xB0, 0x20, 0x20, 0x24),
+        AcrylicTint = Color.FromArgb(0x8E, 0x18, 0x18, 0x1E),   // dark, ~half-transparent over the live blur
         FrostedGlass = true,
         BottomHighlight = true,
         FluidDropdowns = fluid,

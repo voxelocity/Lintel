@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Lintel.Controls;
 using Lintel.Interop;
@@ -182,6 +183,7 @@ public partial class MainWindow : Window, IWidgetHost
     // =========================================================== settings/layout
 
     private bool _backdrop;
+    private bool _frosted;                     // theme uses the live-blur frosted glass
     private bool _backdropAero;                // classic Aero blur vs frosted acrylic
     private bool _useOsBlur = false;           // OS blur is unreliable on Win11 → use translucency
     private Color _backdropTint;
@@ -202,6 +204,7 @@ public partial class MainWindow : Window, IWidgetHost
     {
         var theme = Themes.Resolve(_settings);
         _effectiveBarHeight = theme.BarHeight ?? _settings.BarHeight;
+        _frosted = theme.FrostedGlass && !theme.SeparatedZones && _settings.LiveBlur;
         _backdrop = theme.Acrylic;
         _backdropAero = theme.AeroBlur;
         _backdropTint = theme.AcrylicTint;
@@ -286,7 +289,7 @@ public partial class MainWindow : Window, IWidgetHost
             StartLiveBlur(true);
             FrostImage.Effect = LiveBlurEffect();
             var t = _backdropTint;
-            byte a = Math.Min(t.A, (byte)0x4A);   // light tint only, so the blur stays visible
+            byte a = Math.Min(t.A, (byte)0xD0);   // honour the theme tint (cap just shy of opaque)
             FrostTint.Background = new SolidColorBrush(Color.FromArgb(a, t.R, t.G, t.B));
             FrostTint.Visibility = Visibility.Visible;
             BarBackground = new SolidColorBrush(Color.FromArgb(0, 0, 0, 0));
@@ -1029,6 +1032,7 @@ public partial class MainWindow : Window, IWidgetHost
         if (!_overlayHover) ShowScrim();   // hover dropdowns are non-modal (no click-catcher)
         OverlayPopup.IsOpen = true;
         _forceOpen = true;
+        BeginDropdownFrost(content as FrameworkElement);   // live-blur backdrop for frosted themes
 
         // Text-editing overlays (settings, note) need the window to accept keyboard focus.
         _overlayFocusable = focusable;
@@ -1077,6 +1081,31 @@ public partial class MainWindow : Window, IWidgetHost
         stroke?.Freeze();
         var shadow = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 5, Opacity = 0.5, Color = Colors.Black };
 
+        // Frosted themes: a live-blurred backdrop behind the card + a translucent theme tint, clipped
+        // to the rounded corners. The blur capture is filled in once the popup is positioned.
+        if (_frosted && !_shoulder)
+        {
+            const double R = 14;
+            var frost = new Border { CornerRadius = new CornerRadius(R) };       // blurred capture (set later)
+            var d = _dropMaterial;
+            var tint = new Border { CornerRadius = new CornerRadius(R), Background = new SolidColorBrush(Color.FromArgb(0xA6, d.R, d.G, d.B)) };
+            var inner = new Border { Padding = padding, Child = content };
+            var grid = new Grid();
+            grid.Children.Add(frost);
+            grid.Children.Add(tint);
+            grid.Children.Add(inner);
+            _pendingFrost = frost;
+            return new Border
+            {
+                CornerRadius = new CornerRadius(R),
+                ClipToBounds = true,
+                BorderBrush = stroke,
+                BorderThickness = stroke != null ? new Thickness(1) : new Thickness(0),
+                Child = grid,
+                Effect = shadow
+            };
+        }
+
         if (_shoulder)
             return new Controls.FluidCard
             {
@@ -1094,6 +1123,78 @@ public partial class MainWindow : Window, IWidgetHost
             Child = content,
             Effect = shadow
         };
+    }
+
+    // ---- frosted dropdown backdrop (live blur of whatever is behind the popup) ----
+
+    private Border? _pendingFrost;     // frost layer of the card just built by Card()
+    private Border? _dropFrostBorder;
+    private FrameworkElement? _dropFrostCard;
+    private DispatcherTimer? _dropFrostTimer;
+    private IntPtr _dropFrostHwnd;
+
+    private void BeginDropdownFrost(FrameworkElement? card)
+    {
+        var pending = _pendingFrost;
+        StopDropdownFrost();
+        if (pending == null || card == null) return;
+        _dropFrostBorder = pending;
+        _dropFrostCard = card;
+
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (PresentationSource.FromVisual(card) is System.Windows.Interop.HwndSource src && src.Handle != IntPtr.Zero)
+            {
+                _dropFrostHwnd = src.Handle;
+                SetWindowDisplayAffinity(_dropFrostHwnd, WDA_EXCLUDEFROMCAPTURE);   // don't capture ourselves
+            }
+            UpdateDropdownFrost();
+        }), DispatcherPriority.Loaded);
+
+        _dropFrostTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(70) };
+        _dropFrostTimer.Tick += (_, _) => UpdateDropdownFrost();
+        _dropFrostTimer.Start();
+    }
+
+    private void UpdateDropdownFrost()
+    {
+        if (_dropFrostBorder == null || _dropFrostCard is not { ActualWidth: > 1 }) return;
+        try
+        {
+            var tl = _dropFrostCard.PointToScreen(new Point(0, 0));   // device pixels
+            int w = (int)Math.Round(_dropFrostCard.ActualWidth * _scaleX);
+            int h = (int)Math.Round(_dropFrostCard.ActualHeight * _scaleY);
+            var cap = ScreenCapture.Capture((int)Math.Round(tl.X), (int)Math.Round(tl.Y), w, h);
+            if (cap == null) return;
+            _dropFrostBorder.Background = new ImageBrush(BlurBitmap(cap, 22)) { Stretch = Stretch.Fill };
+        }
+        catch { }
+    }
+
+    private void StopDropdownFrost()
+    {
+        _dropFrostTimer?.Stop();
+        _dropFrostTimer = null;
+        _dropFrostBorder = null;
+        _dropFrostCard = null;
+        _pendingFrost = null;
+        if (_dropFrostHwnd != IntPtr.Zero) { SetWindowDisplayAffinity(_dropFrostHwnd, WDA_NONE); _dropFrostHwnd = IntPtr.Zero; }
+    }
+
+    private static BitmapSource BlurBitmap(BitmapSource src, double radius)
+    {
+        var img = new Image
+        {
+            Source = src,
+            Width = src.PixelWidth,
+            Height = src.PixelHeight,
+            Effect = new System.Windows.Media.Effects.BlurEffect { Radius = radius, KernelType = System.Windows.Media.Effects.KernelType.Gaussian, RenderingBias = System.Windows.Media.Effects.RenderingBias.Performance }
+        };
+        var sz = new Size(src.PixelWidth, src.PixelHeight);
+        img.Measure(sz); img.Arrange(new Rect(sz));
+        var rtb = new RenderTargetBitmap(src.PixelWidth, src.PixelHeight, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(img); rtb.Freeze();
+        return rtb;
     }
 
     private double ShoulderExtra => _shoulder ? 44 : 0;
@@ -1131,6 +1232,7 @@ public partial class MainWindow : Window, IWidgetHost
     private void FinishCloseOverlay()
     {
         _overlayClosing = false;
+        StopDropdownFrost();
         OverlayPopup.IsOpen = false;
         ScrimPopup.IsOpen = false;
         OverlayScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
