@@ -108,7 +108,8 @@ internal static class NativeMethods
     }
 
     public const int ACCENT_DISABLED = 0;
-    public const int ACCENT_ENABLE_ACRYLICBLURBEHIND = 4;
+    public const int ACCENT_ENABLE_BLURBEHIND = 3;          // classic Aero blur (clearer, more translucent)
+    public const int ACCENT_ENABLE_ACRYLICBLURBEHIND = 4;   // frosted Win10/11 acrylic
     public const int WCA_ACCENT_POLICY = 19;
 
     [DllImport("user32.dll")]

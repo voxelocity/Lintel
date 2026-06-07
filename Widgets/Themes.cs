@@ -16,6 +16,7 @@ public sealed class ThemeDef
 
     public bool Acrylic;            // blur what's behind the bar
     public Color AcrylicTint;       // tint over the blur (A = tint strength)
+    public bool AeroBlur;           // use the classic clearer Aero blur instead of frosted acrylic
     public bool BottomHighlight;    // light hairline along the bottom edge
 
     public bool SeparatedZones;     // each zone is its own floating bar
@@ -53,6 +54,7 @@ public sealed class ThemeSpec
     public double IconSaturation { get; set; } = 1.0;       // 1 = full colour, 0 = grayscale
     public bool Acrylic { get; set; } = false;              // blur the desktop behind the bar
     public string AcrylicTint { get; set; } = "#B0202024";  // tint over the blur
+    public bool AeroBlur { get; set; } = false;             // classic clearer Aero blur (vs frosted acrylic)
     public bool BottomHighlight { get; set; } = false;      // hairline along the bottom edge
     public bool SeparatedZones { get; set; } = false;       // left/center/right become floating pills
     public string ZoneBackground { get; set; } = "#E61C1C1E";
@@ -79,6 +81,7 @@ public sealed class ThemeSpec
         IconSaturation = Math.Clamp(IconSaturation, 0, 1),
         Acrylic = Acrylic,
         AcrylicTint = Col(AcrylicTint, Color.FromArgb(0xB0, 0x20, 0x20, 0x24)),
+        AeroBlur = AeroBlur,
         BottomHighlight = BottomHighlight,
         SeparatedZones = SeparatedZones,
         ZoneBackground = Col(ZoneBackground, Color.FromArgb(0xE6, 0x1C, 0x1C, 0x1E)),
@@ -172,43 +175,47 @@ public static class Themes
         BubbleGloss = 0.5,
     };
 
-    // Windows Vista Aero: dark translucent glass (real blur) with a subtle glossy reflection.
+    // Windows Vista Aero: smoky translucent black glass (clear Aero blur) with a glossy reflection.
     private static ThemeDef WinVista() => new()
     {
-        BubbleIdle = Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF),
-        BubbleHover = Color.FromArgb(0x3A, 0xFF, 0xFF, 0xFF),
+        BubbleIdle = Color.FromArgb(0x1E, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x3C, 0xFF, 0xFF, 0xFF),
         CornerRadius = 6,
         Padding = new Thickness(9, 0, 9, 0),
         Spacing = 5,
         IconSaturation = 1.0,
         Acrylic = true,
-        AcrylicTint = Color.FromArgb(0xC6, 0x0A, 0x10, 0x1C),
+        AeroBlur = true,
+        AcrylicTint = Color.FromArgb(0x6E, 0x0C, 0x12, 0x1E),   // translucent dark glass — desktop shows through
+        DropdownColor = Color.FromArgb(0xF0, 0x12, 0x17, 0x22), // keep dropdowns readable
         BarHeight = 30,
-        GlossStrength = 0.30,
+        GlossStrength = 0.34,
         TopEdge = Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF),
         FontFamily = "Segoe UI",
         BubbleBorder = Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF),
-        BubbleGloss = 0.28,
+        BubbleGloss = 0.30,
     };
 
-    // Windows 7 Aero: lighter blue-tinted glass with a strong glossy reflection; taller, chunkier.
+    // Windows 7 Aero: fully clear "liquid glass" — light blue translucent blur, strong reflection; taller.
     private static ThemeDef Win7() => new()
     {
-        BubbleIdle = Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF),
-        BubbleHover = Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF),
+        BubbleIdle = Color.FromArgb(0x26, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x4A, 0xFF, 0xFF, 0xFF),
         CornerRadius = 6,
         Padding = new Thickness(10, 0, 10, 0),
         Spacing = 6,
         IconSaturation = 1.0,
         Acrylic = true,
-        AcrylicTint = Color.FromArgb(0xA6, 0x24, 0x46, 0x76),
+        AeroBlur = true,
+        AcrylicTint = Color.FromArgb(0x34, 0x9C, 0xC6, 0xF2),   // very translucent light blue — clear glass
+        DropdownColor = Color.FromArgb(0xEC, 0x1B, 0x3A, 0x60), // readable dropdown panel
         BarHeight = 38,
-        GlossStrength = 0.62,
-        TopEdge = Color.FromArgb(0x88, 0xFF, 0xFF, 0xFF),
-        BottomEdge = Color.FromArgb(0x44, 0x00, 0x10, 0x28),
+        GlossStrength = 0.7,
+        TopEdge = Color.FromArgb(0xA0, 0xFF, 0xFF, 0xFF),
+        BottomEdge = Color.FromArgb(0x3A, 0x00, 0x10, 0x28),
         FontFamily = "Segoe UI",
-        BubbleBorder = Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF),
-        BubbleGloss = 0.5,
+        BubbleBorder = Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF),
+        BubbleGloss = 0.55,
     };
 
     // Built-in themes, resolved as a function of the user's squircle-corner setting.

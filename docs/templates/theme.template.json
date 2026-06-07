@@ -24,7 +24,8 @@
   "iconSaturation": 1.0,       // 1 = full-colour icons, 0 = grayscale
 
   "acrylic": true,             // blur the desktop behind the bar
-  "acrylicTint": "#B0241814",  // tint painted over that blur (AA = strength)
+  "acrylicTint": "#B0241814",  // tint painted over that blur — LOWER the AA for clearer glass
+  "aeroBlur": false,           // true = clearer classic Aero "liquid glass" blur (vs frosted acrylic)
 
   "bottomHighlight": true,     // thin light hairline along the bar's bottom edge
   "widgetDividers": false,     // draw a subtle divider between every widget

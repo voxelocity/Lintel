@@ -171,6 +171,7 @@ public partial class MainWindow : Window, IWidgetHost
     // =========================================================== settings/layout
 
     private bool _backdrop;
+    private bool _backdropAero;                // classic Aero blur vs frosted acrylic
     private Color _backdropTint;
     private double _effectiveBarHeight = 32;   // theme height override, or the user's setting
 
@@ -190,6 +191,7 @@ public partial class MainWindow : Window, IWidgetHost
         var theme = Themes.Resolve(_settings);
         _effectiveBarHeight = theme.BarHeight ?? _settings.BarHeight;
         _backdrop = theme.Acrylic;
+        _backdropAero = theme.AeroBlur;
         _backdropTint = theme.AcrylicTint;
         _fluid = theme.FluidDropdowns;
         _shoulder = _fluid;   // all fluid themes get the connected shoulder shape
@@ -286,7 +288,9 @@ public partial class MainWindow : Window, IWidgetHost
         uint abgr = (uint)((_backdropTint.A << 24) | (_backdropTint.B << 16) | (_backdropTint.G << 8) | _backdropTint.R);
         var accent = new ACCENT_POLICY
         {
-            AccentState = enabled ? ACCENT_ENABLE_ACRYLICBLURBEHIND : ACCENT_DISABLED,
+            AccentState = enabled
+                ? (_backdropAero ? ACCENT_ENABLE_BLURBEHIND : ACCENT_ENABLE_ACRYLICBLURBEHIND)
+                : ACCENT_DISABLED,
             GradientColor = abgr
         };
         int size = System.Runtime.InteropServices.Marshal.SizeOf(accent);
