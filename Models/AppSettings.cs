@@ -114,6 +114,9 @@ public sealed class AppSettings
     /// <summary>Low-end machines: turn off the blur effects and reduce animations.</summary>
     public bool PotatoMode { get; set; } = false;
 
+    /// <summary>Lite mode: turn off the blur effect but keep the animations.</summary>
+    public bool LiteMode { get; set; } = false;
+
     /// <summary>Open widget dropdowns on hover (true) or on click (false).</summary>
     public bool OpenOnHover { get; set; } = true;
 

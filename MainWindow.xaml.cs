@@ -185,6 +185,7 @@ public partial class MainWindow : Window, IWidgetHost
     private bool _backdrop;
     private bool _frosted;                     // theme uses the live-blur frosted glass
     private bool _potato;                      // low-end mode: no blur, reduced animation
+    private bool _noBlur;                       // Potato or Lite: blur effects off
     private DropdownChrome _chrome;            // OS-window styling for dropdowns
     private bool _backdropAero;                // classic Aero blur vs frosted acrylic
     private bool _useOsBlur = false;           // OS blur is unreliable on Win11 → use translucency
@@ -206,9 +207,10 @@ public partial class MainWindow : Window, IWidgetHost
     {
         var theme = Themes.Resolve(_settings);
         _potato = _settings.PotatoMode;
+        _noBlur = _potato || _settings.LiteMode;   // Lite keeps animations but drops the blur
         _chrome = theme.Chrome;
         _effectiveBarHeight = theme.BarHeight ?? _settings.BarHeight;
-        _frosted = theme.FrostedGlass && !theme.SeparatedZones && _settings.LiveBlur && !_potato;
+        _frosted = theme.FrostedGlass && !theme.SeparatedZones && _settings.LiveBlur && !_noBlur;
         Controls.AnimatedBarPanel.AnimationsEnabled = !_potato;
         _backdrop = theme.Acrylic;
         _backdropAero = theme.AeroBlur;
@@ -289,7 +291,7 @@ public partial class MainWindow : Window, IWidgetHost
 
         // Preferred: custom real-time blur — capture the live content behind the bar (the bar excludes
         // itself from capture) and blur it. Tracks live windows; the blur amount is ours to control.
-        if (wantGlass && _settings.LiveBlur && !_potato)
+        if (wantGlass && _settings.LiveBlur && !_noBlur)
         {
             StartLiveBlur(true);
             FrostImage.Effect = LiveBlurEffect();
@@ -1124,13 +1126,12 @@ public partial class MainWindow : Window, IWidgetHost
             grid.Children.Add(frost);
             grid.Children.Add(tint);
             grid.Children.Add(inner);
+            grid.Children.Add(ShineOverlay(new CornerRadius(R)));   // glassy bevel
             _pendingFrost = frost;
             return new Border
             {
                 CornerRadius = new CornerRadius(R),
                 ClipToBounds = true,
-                BorderBrush = stroke,
-                BorderThickness = stroke != null ? new Thickness(1) : new Thickness(0),
                 Child = grid,
                 Effect = shadow
             };
@@ -1163,6 +1164,18 @@ public partial class MainWindow : Window, IWidgetHost
         foreach (var (c, at) in stops) b.GradientStops.Add(new GradientStop(c, at));
         b.Freeze(); return b;
     }
+
+    /// <summary>A glassy bevel ring — bright at the top, fading down — drawn over a dropdown's edge.</summary>
+    private static Border ShineOverlay(CornerRadius cr) => new()
+    {
+        CornerRadius = cr,
+        IsHitTestVisible = false,
+        BorderThickness = new Thickness(1.3),
+        BorderBrush = VGrad(
+            (Color.FromArgb(0xA8, 0xFF, 0xFF, 0xFF), 0),
+            (Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF), 0.5),
+            (Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF), 1))
+    };
 
     private static Border WinButton(Color top, Color bottom, UIElement glyph) => new()
     {
@@ -1203,13 +1216,18 @@ public partial class MainWindow : Window, IWidgetHost
     // Windows XP Luna window: blue title bar + buttons, blue frame, solid body.
     private FrameworkElement BuildLunaCard(UIElement content, Thickness padding, System.Windows.Media.Effects.Effect shadow)
     {
-        var titleBar = new Border
+        var titleBar = new Grid { Height = 27 };
+        titleBar.Children.Add(new Border
         {
-            Height = 27,
             CornerRadius = new CornerRadius(6, 6, 0, 0),
-            Background = VGrad((Color.FromRgb(0x4B, 0x8E, 0xF7), 0), (Color.FromRgb(0x2C, 0x6B, 0xE8), 0.45), (Color.FromRgb(0x12, 0x4C, 0xD2), 0.55), (Color.FromRgb(0x2A, 0x63, 0xE0), 1)),
-            Child = TitleBarContent(aero: false)
-        };
+            Background = VGrad((Color.FromRgb(0x4B, 0x8E, 0xF7), 0), (Color.FromRgb(0x2C, 0x6B, 0xE8), 0.45), (Color.FromRgb(0x12, 0x4C, 0xD2), 0.55), (Color.FromRgb(0x2A, 0x63, 0xE0), 1))
+        });
+        titleBar.Children.Add(new Border   // glossy top highlight
+        {
+            Height = 3, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(4, 1, 4, 0),
+            CornerRadius = new CornerRadius(2), Background = new SolidColorBrush(Color.FromArgb(0x88, 0xFF, 0xFF, 0xFF))
+        });
+        titleBar.Children.Add(TitleBarContent(aero: false));
         var body = new Border { Background = new SolidColorBrush(_dropMaterial), Padding = padding, Child = content };
 
         var grid = new Grid();
@@ -1267,11 +1285,14 @@ public partial class MainWindow : Window, IWidgetHost
         Grid.SetRow(bodyTint, 1);
         grid.Children.Add(bodyTint);
 
+        var shine = ShineOverlay(new CornerRadius(R));
+        Grid.SetRowSpan(shine, 2);
+        grid.Children.Add(shine);
+
         return new Border
         {
             CornerRadius = new CornerRadius(R),
             ClipToBounds = true,
-            BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)), BorderThickness = new Thickness(1),
             Child = grid,
             Effect = shadow
         };

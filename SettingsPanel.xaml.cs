@@ -85,6 +85,7 @@ public partial class SettingsPanel : UserControl
         CmdWidgetsChk.IsChecked = _settings.EnableCommandWidgets;
         LiveBlurChk.IsChecked = _settings.LiveBlur;
         PotatoChk.IsChecked = _settings.PotatoMode;
+        LiteChk.IsChecked = _settings.LiteMode;
     }
 
     private void ImportTheme_Click(object sender, RoutedEventArgs e) => ImportThemeRequested?.Invoke();
@@ -117,6 +118,7 @@ public partial class SettingsPanel : UserControl
         _settings.EnableCommandWidgets = CmdWidgetsChk.IsChecked == true;
         _settings.LiveBlur = LiveBlurChk.IsChecked == true;
         _settings.PotatoMode = PotatoChk.IsChecked == true;
+        _settings.LiteMode = LiteChk.IsChecked == true;
         _settings.RevealHoldMs = ParseI(RevealHoldBox.Text, _settings.RevealHoldMs);
         _settings.HideDelayMs = ParseI(HideDelayBox.Text, _settings.HideDelayMs);
         _settings.TriggerZonePx = ParseI(TriggerZoneBox.Text, _settings.TriggerZonePx);
