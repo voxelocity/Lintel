@@ -1118,8 +1118,7 @@ public partial class MainWindow : Window, IWidgetHost
         {
             const double R = 14;
             var frost = new Border { CornerRadius = new CornerRadius(R) };       // blurred capture (set later)
-            var d = _dropMaterial;
-            var tint = new Border { CornerRadius = new CornerRadius(R), Background = new SolidColorBrush(Color.FromArgb(0xA6, d.R, d.G, d.B)) };
+            var tint = new Border { CornerRadius = new CornerRadius(R), Background = new SolidColorBrush(_backdropTint) };  // same tint as the bar → clear glass
             var inner = new Border { Padding = padding, Child = content };
             var grid = new Grid();
             grid.Children.Add(frost);
@@ -1262,8 +1261,9 @@ public partial class MainWindow : Window, IWidgetHost
         Grid.SetRow(titleGlass, 0);
         grid.Children.Add(titleGlass);
 
-        // Body: translucent tint (so the blur shows) + content.
-        var bodyTint = new Border { Background = new SolidColorBrush(Color.FromArgb((byte)(_frosted ? 0xA6 : 0xFF), d.R, d.G, d.B)), Padding = padding, Child = content };
+        // Body: match the bar's tint when frosted (clear glass), else a solid dark body.
+        var bodyBrush = _frosted ? (Brush)new SolidColorBrush(_backdropTint) : new SolidColorBrush(Color.FromArgb(0xFF, d.R, d.G, d.B));
+        var bodyTint = new Border { Background = bodyBrush, Padding = padding, Child = content };
         Grid.SetRow(bodyTint, 1);
         grid.Children.Add(bodyTint);
 
