@@ -15,6 +15,7 @@ public sealed class MediaSnapshot
     public bool HasMedia;
     public string Title = "";
     public string Artist = "";
+    public string Album = "";
     public bool IsPlaying;
     public ImageSource? Cover;
     public TimeSpan Position;
@@ -98,6 +99,7 @@ public sealed class MediaService
                 var props = await s.TryGetMediaPropertiesAsync();
                 snap.Title = props.Title ?? "";
                 snap.Artist = props.Artist ?? "";
+                snap.Album = props.AlbumTitle ?? "";
                 snap.HasMedia = !string.IsNullOrWhiteSpace(snap.Title);
 
                 if (props.Thumbnail != null && snap.HasMedia)

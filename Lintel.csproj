@@ -29,8 +29,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- WASAPI loopback capture for the real audio visualizer -->
+    <!-- WASAPI loopback capture for the real audio visualizer + Core Audio volume control -->
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <!-- WMI laptop-brightness control -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
   <!-- App logo: shipped as the exe icon, the WPF window icon, and embedded for the tray. -->

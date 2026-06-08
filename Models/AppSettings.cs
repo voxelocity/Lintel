@@ -18,6 +18,13 @@ public enum LintelTheme
     Mond
 }
 
+/// <summary>A single To-Do widget item.</summary>
+public sealed class TodoItem
+{
+    public string Text { get; set; } = "";
+    public bool Done { get; set; }
+}
+
 public enum VisibilityMode
 {
     /// <summary>Bar is always visible and reserves desktop space (like the macOS menu bar).</summary>
@@ -128,6 +135,19 @@ public sealed class AppSettings
 
     /// <summary>Where the GitHub widget clones repositories. Empty = Desktop.</summary>
     public string CloneTargetFolder { get; set; } = "";
+
+    /// <summary>To-Do widget items.</summary>
+    public List<TodoItem> Todos { get; set; } = new();
+
+    /// <summary>Stocks/crypto widget symbols (Yahoo Finance tickers, comma-separated).</summary>
+    public string StockSymbols { get; set; } = "BTC-USD, ETH-USD, AAPL";
+
+    /// <summary>Weather widget location (city/postcode). Empty = auto by IP.</summary>
+    public string WeatherLocation { get; set; } = "";
+
+    /// <summary>Pomodoro work / break lengths, minutes.</summary>
+    public int PomodoroWorkMin { get; set; } = 25;
+    public int PomodoroBreakMin { get; set; } = 5;
 
     // ----------------------------------------------------------------------
 

@@ -100,6 +100,13 @@ public sealed class WidgetView : Border
         WidgetKind.Claude => BuildStatWidget("claude", Color.FromRgb(0xD9, 0x77, 0x57), "—"),
         WidgetKind.GitHub => BuildStatWidget("github", Color.FromRgb(0xE6, 0xE6, 0xEA), "—"),
         WidgetKind.Custom => BuildCustom(),
+        WidgetKind.Volume => BuildStatWidget("volume", Color.FromRgb(0xCF, 0xD2, 0xDA), _preview ? "60%" : "•"),
+        WidgetKind.Brightness => BuildStatWidget("brightness", Color.FromRgb(0xFF, 0xC8, 0x3C), _preview ? "80%" : "•"),
+        WidgetKind.Weather => BuildStatWidget("weather", Color.FromRgb(0x5C, 0xB4, 0xF0), _preview ? "18°C" : "—"),
+        WidgetKind.Stocks => BuildStatWidget("stocks", Color.FromRgb(0x39, 0xD3, 0x53), _preview ? "BTC 67k" : "—"),
+        WidgetKind.Todo => BuildStatWidget("todo", Accent, _preview ? "3" : "0"),
+        WidgetKind.Pomodoro => BuildStatWidget("pomodoro", Color.FromRgb(0xE0, 0x53, 0x3C), _preview ? "25:00" : "25:00"),
+        WidgetKind.TicTacToe => BuildStatWidget("tictactoe", Color.FromRgb(0xE6, 0xE6, 0xEA), ""),
         _ => BuildText(out _dynamicText, false)
     };
 
@@ -514,6 +521,14 @@ public sealed class WidgetView : Border
             case WidgetKind.Mode: UpdateModeText(); break;
             case WidgetKind.Workspaces: RefreshWorkspace(); break;
             case WidgetKind.Custom: RefreshCustom(); break;
+            case WidgetKind.Volume:
+            case WidgetKind.Brightness:
+            case WidgetKind.Weather:
+            case WidgetKind.Stocks:
+            case WidgetKind.Todo:
+            case WidgetKind.Pomodoro:
+                if (!_preview && _statText != null) SetStat(_host.WidgetStat(this));
+                break;
             default: if (_dynamicText != null) Refresh(_dynamicText); break;
         }
     }
@@ -629,6 +644,13 @@ public sealed class WidgetView : Border
             case WidgetKind.Media:
             case WidgetKind.Claude:
             case WidgetKind.GitHub:
+            case WidgetKind.Volume:
+            case WidgetKind.Brightness:
+            case WidgetKind.Weather:
+            case WidgetKind.Stocks:
+            case WidgetKind.Todo:
+            case WidgetKind.Pomodoro:
+            case WidgetKind.TicTacToe:
                 if (!_host.OpenOnHover) _host.OpenWidgetDropdown(this, hover: false);
                 break;
             case WidgetKind.Custom:

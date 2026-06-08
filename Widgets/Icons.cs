@@ -25,8 +25,107 @@ public static class Icons
         "media" => Media(),
         "claude" => Claude(),
         "github" => GitHub(),
+        "todo" => Todo(),
+        "pomodoro" => Pomodoro(),
+        "weather" => Weather(),
+        "stocks" => Stocks(),
+        "volume" => Volume(),
+        "brightness" => Brightness(),
+        "tictactoe" => TicTacToe(),
         _ => null
     };
+
+    // Checklist
+    private static Geometry Todo()
+    {
+        var g = new GeometryGroup();
+        g.Children.Add(Geometry.Parse("M3,5 L5,7 L8,3.5"));       // tick
+        g.Children.Add(R(11, 4, 10, 2));
+        g.Children.Add(Geometry.Parse("M3,11 L5,13 L8,9.5"));
+        g.Children.Add(R(11, 10, 10, 2));
+        g.Children.Add(R(3.5, 16.5, 4, 4, 0.8));                 // empty box
+        g.Children.Add(R(11, 16, 10, 2));
+        return Freeze(g);
+    }
+
+    // Tomato timer
+    private static Geometry Pomodoro()
+    {
+        var g = new GeometryGroup();
+        g.Children.Add(E(12, 13.5, 8));
+        g.Children.Add(Geometry.Parse("M12,5 C10,3 8,3.5 8.5,5.5 C10.5,5 11,5.5 12,6 C13,5.5 13.5,5 15.5,5.5 C16,3.5 14,3 12,5 Z")); // leaf
+        g.Children.Add(R(11.4, 4, 1.2, 2.5, 0.4));   // stem
+        return Freeze(g);
+    }
+
+    // Sun behind a cloud
+    private static Geometry Weather()
+    {
+        var sun = E(8, 8, 3.6);
+        var cloud = new GeometryGroup();
+        cloud.Children.Add(E(10, 15, 4));
+        cloud.Children.Add(E(15, 14, 5));
+        cloud.Children.Add(E(18, 16, 3.4));
+        cloud.Children.Add(R(9, 15.5, 10, 4, 0));
+        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
+        g.Children.Add(sun);
+        g.Children.Add(cloud);
+        return Freeze(g);
+    }
+
+    // Upward trend line + bars
+    private static Geometry Stocks()
+    {
+        var g = new GeometryGroup();
+        g.Children.Add(R(3, 14, 3, 6, 0.6));
+        g.Children.Add(R(8, 10, 3, 10, 0.6));
+        g.Children.Add(R(13, 12, 3, 8, 0.6));
+        g.Children.Add(R(18, 6, 3, 14, 0.6));
+        g.Children.Add(Geometry.Parse("M3,9 L9,6 L14,8 L21,2 L21,4.5 L14,10 L9,8 L3,11 Z")); // arrow line
+        return Freeze(g);
+    }
+
+    // Speaker
+    private static Geometry Volume()
+    {
+        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
+        g.Children.Add(Geometry.Parse("M3,9 L7,9 L12,4 L12,20 L7,15 L3,15 Z"));
+        g.Children.Add(new CombinedGeometry(GeometryCombineMode.Exclude, E(15, 12, 4.5), E(15, 12, 2.8)));
+        g.Children.Add(new CombinedGeometry(GeometryCombineMode.Exclude, E(15, 12, 7.2), E(15, 12, 5.6)));
+        return Freeze(g);
+    }
+
+    // Sun with rays
+    private static Geometry Brightness()
+    {
+        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
+        g.Children.Add(E(12, 12, 4.2));
+        for (int i = 0; i < 8; i++)
+        {
+            double a = i * Math.PI / 4;
+            var p1 = Polar(12, 12, 7, a);
+            var p2 = Polar(12, 12, 10, a);
+            var n = new Vector(-Math.Sin(a), Math.Cos(a)) * 0.9;
+            var fig = new PathFigure { StartPoint = new Point(p1.X + n.X, p1.Y + n.Y), IsClosed = true };
+            fig.Segments.Add(new LineSegment(new Point(p2.X + n.X, p2.Y + n.Y), true));
+            fig.Segments.Add(new LineSegment(new Point(p2.X - n.X, p2.Y - n.Y), true));
+            fig.Segments.Add(new LineSegment(new Point(p1.X - n.X, p1.Y - n.Y), true));
+            var pg = new PathGeometry(); pg.Figures.Add(fig);
+            g.Children.Add(pg);
+        }
+        return Freeze(g);
+    }
+
+    // Tic-tac-toe grid
+    private static Geometry TicTacToe()
+    {
+        var g = new GeometryGroup();
+        g.Children.Add(R(9, 3, 1.6, 18, 0.6));
+        g.Children.Add(R(13.4, 3, 1.6, 18, 0.6));
+        g.Children.Add(R(3, 9, 18, 1.6, 0.6));
+        g.Children.Add(R(3, 13.4, 18, 1.6, 0.6));
+        return Freeze(g);
+    }
 
     // Anthropic-style sunburst mark
     private static Geometry Claude()

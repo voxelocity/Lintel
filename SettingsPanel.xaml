@@ -254,6 +254,18 @@
                         </StackPanel>
                         <TextBlock Text="Drop .json themes/widgets in the folder or import them here. Templates: github.com/voxelocity/Lintel/tree/main/docs/templates"
                                    Style="{StaticResource Hint}" Margin="0,8,0,0"/>
+
+                        <TextBlock Text="WIDGETS" Style="{StaticResource Section}"/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="Weather location (blank = auto)"/>
+                            <TextBox Grid.Column="1" x:Name="WeatherLocBox"/>
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="Stock/crypto symbols"/>
+                            <TextBox Grid.Column="1" x:Name="StockSymBox"/>
+                        </Grid>
                     </StackPanel>
                 </Grid>
 

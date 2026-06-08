@@ -104,7 +104,9 @@ public partial class MainWindow : Window, IWidgetHost
     public bool OpenOnHover => _settings.OpenOnHover;
 
     public bool HasDropdown(WidgetView view) => view.Descriptor.Kind
-        is WidgetKind.Gauge or WidgetKind.Load or WidgetKind.Media or WidgetKind.Claude or WidgetKind.GitHub;
+        is WidgetKind.Gauge or WidgetKind.Load or WidgetKind.Media or WidgetKind.Claude or WidgetKind.GitHub
+        or WidgetKind.Volume or WidgetKind.Brightness or WidgetKind.Weather or WidgetKind.Stocks
+        or WidgetKind.Todo or WidgetKind.Pomodoro or WidgetKind.TicTacToe;
 
     public void OpenWidgetDropdown(WidgetView view, bool hover)
     {
@@ -121,6 +123,13 @@ public partial class MainWindow : Window, IWidgetHost
             case WidgetKind.Media: ShowMediaPanel(view); break;
             case WidgetKind.Claude: ShowClaudePanel(view); break;
             case WidgetKind.GitHub: ShowGitHubPanel(view); break;
+            case WidgetKind.Volume: ShowVolumePanel(view); break;
+            case WidgetKind.Brightness: ShowBrightnessPanel(view); break;
+            case WidgetKind.Weather: ShowWeatherPanel(view); break;
+            case WidgetKind.Stocks: ShowStocksPanel(view); break;
+            case WidgetKind.Todo: ShowTodoPanel(view); break;
+            case WidgetKind.Pomodoro: ShowPomodoroPanel(view); break;
+            case WidgetKind.TicTacToe: ShowTicTacToePanel(view); break;
         }
     }
 
@@ -513,6 +522,7 @@ public partial class MainWindow : Window, IWidgetHost
     {
         foreach (var w in _allWidgets) w.RefreshDynamic();
         RefreshDevWidgets();
+        RefreshInfoWidgets();
     }
 
     private void PersistLayout()
@@ -1734,8 +1744,10 @@ public partial class MainWindow : Window, IWidgetHost
         var titleStack = new StackPanel { Margin = new Thickness(12, 2, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         var titleTb = new TextBlock { Foreground = Brushes.White, FontSize = 14, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = W - 90 };
         var artistTb = new TextBlock { Foreground = new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xA6)), FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = W - 90, Margin = new Thickness(0, 2, 0, 0) };
+        var albumTb = new TextBlock { Foreground = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x86)), FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = W - 90, Margin = new Thickness(0, 2, 0, 0) };
         titleStack.Children.Add(titleTb);
         titleStack.Children.Add(artistTb);
+        titleStack.Children.Add(albumTb);
         Grid.SetColumn(titleStack, 1);
         header.Children.Add(titleStack);
         panel.Children.Add(header);
@@ -1765,13 +1777,40 @@ public partial class MainWindow : Window, IWidgetHost
         controls.Children.Add(MediaCtrl(Geometry.Parse("M2,2 L9,7 L2,12 Z M11,2 L13,2 L13,12 L11,12 Z"), () => _media!.Next(), 16));
         panel.Children.Add(controls);
 
+        // lyrics (fetched from lrclib)
+        panel.Children.Add(new Border { Height = 1, Background = HairLine(), Margin = new Thickness(0, 12, 0, 8) });
+        var lyricsTb = new TextBlock { Foreground = new SolidColorBrush(Color.FromRgb(0xC4, 0xC4, 0xCA)), FontSize = 12.5, LineHeight = 18, TextWrapping = TextWrapping.Wrap };
+        var lyricsScroll = new ScrollViewer { MaxHeight = 150, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = lyricsTb };
+        panel.Children.Add(lyricsScroll);
+
         var card = Card(panel, new Thickness(16, 14, 16, 12));
+        string lyricKey = "";
 
         void Update()
         {
             var m = _media!.Current;
             titleTb.Text = m.HasMedia ? m.Title : "Nothing playing";
             artistTb.Text = m.Artist;
+            albumTb.Text = m.Album;
+            albumTb.Visibility = string.IsNullOrEmpty(m.Album) ? Visibility.Collapsed : Visibility.Visible;
+
+            string key = m.Artist + "|" + m.Title;
+            if (m.HasMedia && key != lyricKey)
+            {
+                lyricKey = key;
+                lyricsTb.Text = "Loading lyrics…";
+                Lyrics.GetAsync(m.Artist, m.Title).ContinueWith(t =>
+                {
+                    if (!t.IsCompletedSuccessfully) return;
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (lyricKey != key) return;   // track changed meanwhile
+                        lyricsTb.Text = string.IsNullOrWhiteSpace(t.Result) ? "No lyrics found." : t.Result;
+                    }));
+                });
+            }
+            else if (!m.HasMedia) { lyricKey = ""; lyricsTb.Text = ""; }
+
             coverImg.Source = m.Cover;
             coverPh.Visibility = m.Cover == null ? Visibility.Visible : Visibility.Collapsed;
             coverPh.Fill = new SolidColorBrush(m.Accent);
@@ -1910,6 +1949,30 @@ public partial class MainWindow : Window, IWidgetHost
         var totalTb = new TextBlock { Text = GitHubService.GhAvailable ? "loading contributions…" : "", Foreground = Sub(), FontSize = 10.5, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
         panel.Children.Add(totalTb);
 
+        // your open PRs + recent repos
+        if (GitHubService.GhAvailable)
+        {
+            panel.Children.Add(new Border { Height = 1, Background = HairLine(), Margin = new Thickness(0, 12, 0, 10) });
+            panel.Children.Add(new TextBlock { Text = "YOUR OPEN PRS", Foreground = Sub(), FontSize = 9.5, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 0, 0, 6) });
+            var prs = new StackPanel(); var prStatus = new TextBlock { Text = "loading…", Foreground = Sub(), FontSize = 11 };
+            prs.Children.Add(prStatus); panel.Children.Add(prs);
+
+            panel.Children.Add(new TextBlock { Text = "RECENT REPOS", Foreground = Sub(), FontSize = 9.5, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 10, 0, 6) });
+            var repos = new StackPanel(); var repoStatus = new TextBlock { Text = "loading…", Foreground = Sub(), FontSize = 11 };
+            repos.Children.Add(repoStatus); panel.Children.Add(repos);
+
+            GitHubService.MyPullRequestsAsync().ContinueWith(t =>
+            {
+                if (!t.IsCompletedSuccessfully) return;
+                Dispatcher.BeginInvoke(new Action(() => FillGhList(prs, t.Result, "No open PRs.")));
+            });
+            GitHubService.RecentReposAsync().ContinueWith(t =>
+            {
+                if (!t.IsCompletedSuccessfully) return;
+                Dispatcher.BeginInvoke(new Action(() => FillGhList(repos, t.Result, "No repos found.")));
+            });
+        }
+
         panel.Children.Add(new Border { Height = 1, Background = HairLine(), Margin = new Thickness(0, 12, 0, 10) });
 
         // clone row
@@ -2040,12 +2103,393 @@ public partial class MainWindow : Window, IWidgetHost
         };
     }
 
+    private void FillGhList(StackPanel container, List<GitHubService.GhItem> items, string emptyMsg)
+    {
+        container.Children.Clear();
+        if (items.Count == 0) { container.Children.Add(new TextBlock { Text = emptyMsg, Foreground = Sub(), FontSize = 11 }); return; }
+        foreach (var it in items)
+        {
+            var row = new Border { CornerRadius = new CornerRadius(7), Padding = new Thickness(8, 5, 8, 5), Margin = new Thickness(0, 0, 0, 2), Cursor = Cursors.Hand, Background = Brushes.Transparent };
+            var sp = new StackPanel();
+            sp.Children.Add(new TextBlock { Text = it.Title, Foreground = Brushes.White, FontSize = 12.5, TextTrimming = TextTrimming.CharacterEllipsis });
+            if (!string.IsNullOrEmpty(it.Subtitle)) sp.Children.Add(new TextBlock { Text = it.Subtitle, Foreground = Sub(), FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis });
+            row.Child = sp;
+            row.MouseEnter += (_, _) => row.Background = new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF));
+            row.MouseLeave += (_, _) => row.Background = Brushes.Transparent;
+            var url = it.Url;
+            row.MouseLeftButtonDown += (_, e) => { e.Handled = true; OpenUrl(url); CloseOverlay(); };
+            container.Children.Add(row);
+        }
+    }
+
     private void OpenDevOverlay(FrameworkElement card, WidgetView view, double width)
     {
         double off = view.TranslatePoint(new Point(0, 0), BarRoot).X - 20;
         off = Math.Clamp(off, 8, Math.Max(8, BarRoot.ActualWidth - width - 28));
         // dev panels have inputs/buttons → make the overlay focusable so clicks register
         OpenOverlay(card, BarRoot, off, focusable: true);
+    }
+
+    // =========================================================== new widgets: stats + panels
+
+    private WeatherInfo? _weather; private DateTime _weatherAt;
+    private List<Quote>? _quotes; private DateTime _quotesAt;
+    private int _volLevel = -1; private bool _volMuted; private int _bright = -1; private DateTime _brightAt;
+
+    public string WidgetStat(WidgetView view) => view.Descriptor.Kind switch
+    {
+        WidgetKind.Volume => _volMuted ? "muted" : (_volLevel >= 0 ? _volLevel + "%" : "—"),
+        WidgetKind.Brightness => _bright >= 0 ? _bright + "%" : "—",
+        WidgetKind.Weather => _weather?.Ok == true ? $"{_weather.TempC}°C" : "—",
+        WidgetKind.Stocks => StockBarText(),
+        WidgetKind.Todo => _settings.Todos.Count(t => !t.Done).ToString(),
+        WidgetKind.Pomodoro => PomoText(),
+        _ => ""
+    };
+
+    private string StockBarText()
+    {
+        if (_quotes == null || _quotes.Count == 0) return "—";
+        var q = _quotes[0];
+        string sym = q.Symbol.Replace("-USD", "");
+        return q.Ok ? $"{sym} {CompactNum(q.Price)}" : sym;
+    }
+
+    private static string CompactNum(double n) =>
+        n >= 1_000_000 ? (n / 1_000_000).ToString("0.0") + "M" :
+        n >= 1000 ? (n / 1000).ToString("0.0") + "k" :
+        n.ToString("0.##");
+
+    /// <summary>Periodically refresh weather + stock + volume/brightness caches off the UI thread.</summary>
+    private void RefreshInfoWidgets()
+    {
+        // Volume read is cheap; brightness (WMI) is slow → both cached off-thread to avoid bar jank.
+        if (_allWidgets.Any(w => w.Descriptor.Kind == WidgetKind.Volume))
+            System.Threading.Tasks.Task.Run(() => { _volLevel = SystemVolume.Level(); _volMuted = SystemVolume.Muted(); });
+        if (_allWidgets.Any(w => w.Descriptor.Kind == WidgetKind.Brightness) && (DateTime.UtcNow - _brightAt).TotalSeconds > 3)
+        {
+            _brightAt = DateTime.UtcNow;
+            System.Threading.Tasks.Task.Run(() => _bright = Brightness.Level());
+        }
+
+        if (_allWidgets.Any(w => w.Descriptor.Kind == WidgetKind.Weather) && (DateTime.UtcNow - _weatherAt).TotalMinutes > 12)
+        {
+            _weatherAt = DateTime.UtcNow;
+            Weather.GetAsync(_settings.WeatherLocation).ContinueWith(t => { if (t.IsCompletedSuccessfully) _weather = t.Result; });
+        }
+        if (_allWidgets.Any(w => w.Descriptor.Kind == WidgetKind.Stocks) && (DateTime.UtcNow - _quotesAt).TotalMinutes > 2)
+        {
+            _quotesAt = DateTime.UtcNow;
+            Stocks.GetAsync(_settings.StockSymbols.Split(',')).ContinueWith(t => { if (t.IsCompletedSuccessfully) _quotes = t.Result; });
+        }
+    }
+
+    // ---- Volume ----
+
+    public void ShowVolumePanel(WidgetView view)
+    {
+        const double W = 250;
+        var panel = new StackPanel { Width = W };
+        panel.Children.Add(SectionLabel("VOLUME"));
+        if (!SystemVolume.Available) { panel.Children.Add(Hint("No audio output device found.")); OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W); return; }
+
+        var val = new TextBlock { Text = SystemVolume.Level() + "%", Foreground = Brushes.White, FontSize = 24, FontWeight = FontWeights.Bold };
+        panel.Children.Add(val);
+        var slider = new Slider { Minimum = 0, Maximum = 100, Value = Math.Max(0, SystemVolume.Level()), Margin = new Thickness(0, 6, 0, 6) };
+        slider.ValueChanged += (_, _) => { SystemVolume.SetLevel((int)slider.Value); val.Text = (int)slider.Value + "%"; };
+        panel.Children.Add(slider);
+        var mute = OpenButton(SystemVolume.Muted() ? "Unmute" : "Mute", Color.FromRgb(0x0A, 0x84, 0xFF), null);
+        mute.MouseLeftButtonDown += (_, e) => { e.Handled = true; SystemVolume.ToggleMute(); CloseOverlay(); };
+        panel.Children.Add(mute);
+        OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W);
+    }
+
+    public void ShowBrightnessPanel(WidgetView view)
+    {
+        const double W = 250;
+        var panel = new StackPanel { Width = W };
+        panel.Children.Add(SectionLabel("BRIGHTNESS"));
+        if (!Brightness.Available) { panel.Children.Add(Hint("Brightness control isn't available on this display (typical for desktop monitors).")); OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W); return; }
+
+        var val = new TextBlock { Text = Brightness.Level() + "%", Foreground = Brushes.White, FontSize = 24, FontWeight = FontWeights.Bold };
+        panel.Children.Add(val);
+        var slider = new Slider { Minimum = 0, Maximum = 100, Value = Math.Max(0, Brightness.Level()), Margin = new Thickness(0, 6, 0, 6) };
+        slider.ValueChanged += (_, _) => { val.Text = (int)slider.Value + "%"; };
+        slider.PreviewMouseUp += (_, _) => Brightness.SetLevel((int)slider.Value);   // set on release (WMI is slow)
+        panel.Children.Add(slider);
+        OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W);
+    }
+
+    // ---- Weather ----
+
+    public void ShowWeatherPanel(WidgetView view)
+    {
+        const double W = 290;
+        var panel = new StackPanel { Width = W };
+        panel.Children.Add(SectionLabel("WEATHER"));
+        var bigVal = new TextBlock { Text = "…", Foreground = Brushes.White, FontSize = 30, FontWeight = FontWeights.Bold };
+        var desc = new TextBlock { Foreground = Sub(), FontSize = 12.5, Margin = new Thickness(0, 0, 0, 8) };
+        panel.Children.Add(bigVal); panel.Children.Add(desc);
+        var details = new StackPanel(); panel.Children.Add(details);
+        var fc = new StackPanel { Margin = new Thickness(0, 8, 0, 0) }; panel.Children.Add(fc);
+        OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W);
+
+        void Apply(WeatherInfo w)
+        {
+            if (!w.Ok) { bigVal.Text = "—"; desc.Text = "Couldn't load weather."; return; }
+            bigVal.Text = $"{w.TempC}°C";
+            desc.Text = $"{w.Desc}  ·  {w.Location}";
+            details.Children.Clear();
+            details.Children.Add(StatLine("Feels like", $"{w.FeelsC}°C").row);
+            details.Children.Add(StatLine("Humidity", $"{w.Humidity}%").row);
+            details.Children.Add(StatLine("Wind", $"{w.WindKph:0} km/h").row);
+            fc.Children.Clear();
+            fc.Children.Add(new Border { Height = 1, Background = HairLine(), Margin = new Thickness(0, 2, 0, 8) });
+            foreach (var (day, mn, mx, d) in w.Forecast.Take(3))
+            {
+                var g = new Grid { Margin = new Thickness(0, 0, 0, 5) };
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var dn = new TextBlock { Text = day, Foreground = Brushes.White, FontSize = 12, FontWeight = FontWeights.SemiBold };
+                var dd = new TextBlock { Text = d, Foreground = Sub(), FontSize = 11.5, TextTrimming = TextTrimming.CharacterEllipsis };
+                var tt = new TextBlock { Text = $"{mx}° / {mn}°", Foreground = Sub(), FontSize = 11.5 };
+                Grid.SetColumn(dn, 0); Grid.SetColumn(dd, 1); Grid.SetColumn(tt, 2);
+                g.Children.Add(dn); g.Children.Add(dd); g.Children.Add(tt);
+                fc.Children.Add(g);
+            }
+        }
+        if (_weather?.Ok == true) Apply(_weather);
+        Weather.GetAsync(_settings.WeatherLocation).ContinueWith(t =>
+        {
+            if (!t.IsCompletedSuccessfully) return;
+            _weather = t.Result; _weatherAt = DateTime.UtcNow;
+            Dispatcher.BeginInvoke(new Action(() => Apply(t.Result)));
+        });
+    }
+
+    // ---- Stocks & crypto ----
+
+    public void ShowStocksPanel(WidgetView view)
+    {
+        const double W = 290;
+        var panel = new StackPanel { Width = W };
+        panel.Children.Add(SectionLabel("STOCKS & CRYPTO"));
+        var list = new StackPanel(); panel.Children.Add(list);
+        var status = new TextBlock { Text = "Loading…", Foreground = Sub(), FontSize = 11.5, Margin = new Thickness(2, 4, 0, 0) };
+        panel.Children.Add(status);
+        OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 10)), view, W);
+
+        void Apply(List<Quote> qs)
+        {
+            list.Children.Clear();
+            status.Visibility = Visibility.Collapsed;
+            foreach (var q in qs)
+            {
+                var g = new Grid { Margin = new Thickness(0, 0, 0, 7) };
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
+                var sym = new TextBlock { Text = q.Symbol, Foreground = Brushes.White, FontSize = 13, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+                var price = new TextBlock { Text = q.Ok ? "$" + CompactNum(q.Price) : "n/a", Foreground = new SolidColorBrush(Color.FromRgb(0xC8, 0xC8, 0xCD)), FontSize = 13, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+                var up = q.ChangePct >= 0;
+                var chg = new TextBlock { Text = q.Ok ? $"{(up ? "+" : "")}{q.ChangePct:0.0}%" : "", Foreground = new SolidColorBrush(up ? Color.FromRgb(0x39, 0xD3, 0x53) : Color.FromRgb(0xFF, 0x5B, 0x52)), FontSize = 12.5, FontWeight = FontWeights.SemiBold, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(sym, 0); Grid.SetColumn(price, 1); Grid.SetColumn(chg, 2);
+                g.Children.Add(sym); g.Children.Add(price); g.Children.Add(chg);
+                list.Children.Add(g);
+            }
+            if (qs.Count == 0) { status.Visibility = Visibility.Visible; status.Text = "Set symbols in Advanced settings."; }
+        }
+        if (_quotes != null) Apply(_quotes);
+        Stocks.GetAsync(_settings.StockSymbols.Split(',')).ContinueWith(t =>
+        {
+            if (!t.IsCompletedSuccessfully) return;
+            _quotes = t.Result; _quotesAt = DateTime.UtcNow;
+            Dispatcher.BeginInvoke(new Action(() => Apply(t.Result)));
+        });
+    }
+
+    // ---- To-Do ----
+
+    public void ShowTodoPanel(WidgetView view)
+    {
+        const double W = 300;
+        var panel = new StackPanel { Width = W };
+        panel.Children.Add(SectionLabel("TO-DO"));
+        var list = new StackPanel();
+        panel.Children.Add(list);
+
+        void Rebuild()
+        {
+            list.Children.Clear();
+            foreach (var item in _settings.Todos.ToList())
+            {
+                var captured = item;
+                var row = new Grid { Margin = new Thickness(0, 1, 0, 1) };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var chk = new CheckBox { IsChecked = item.Done, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+                chk.Checked += (_, _) => { captured.Done = true; _settings.Save(); Rebuild(); };
+                chk.Unchecked += (_, _) => { captured.Done = false; _settings.Save(); };
+                var txt = new TextBlock { Text = item.Text, Foreground = item.Done ? Sub() : Brushes.White, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, TextDecorations = item.Done ? TextDecorations.Strikethrough : null };
+                var del = new TextBlock { Text = "✕", Foreground = Sub(), FontSize = 12, Cursor = Cursors.Hand, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 2, 0) };
+                del.MouseLeftButtonDown += (_, e) => { e.Handled = true; _settings.Todos.Remove(captured); _settings.Save(); Rebuild(); };
+                Grid.SetColumn(chk, 0); Grid.SetColumn(txt, 1); Grid.SetColumn(del, 2);
+                row.Children.Add(chk); row.Children.Add(txt); row.Children.Add(del);
+                list.Children.Add(row);
+            }
+            if (_settings.Todos.Count == 0) list.Children.Add(new TextBlock { Text = "Nothing yet — add a task below.", Foreground = Sub(), FontSize = 12, Margin = new Thickness(2, 2, 0, 2) });
+        }
+        Rebuild();
+
+        panel.Children.Add(new Border { Height = 1, Background = HairLine(), Margin = new Thickness(0, 8, 0, 8) });
+        var add = new Grid();
+        add.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        add.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var box = new TextBox { Background = new SolidColorBrush(Color.FromRgb(0x2C, 0x2C, 0x30)), Foreground = Brushes.White, CaretBrush = Brushes.White, BorderThickness = new Thickness(0), Padding = new Thickness(8, 6, 8, 6), FontSize = 12.5, Height = 30, VerticalContentAlignment = VerticalAlignment.Center };
+        var addBtn = SmallButton("Add", Color.FromRgb(0x0A, 0x84, 0xFF)); addBtn.Margin = new Thickness(8, 0, 0, 0);
+        void Commit() { var t = box.Text.Trim(); if (t.Length == 0) return; _settings.Todos.Add(new TodoItem { Text = t }); _settings.Save(); box.Clear(); Rebuild(); }
+        box.KeyDown += (_, e) => { if (e.Key == Key.Enter) Commit(); };
+        addBtn.MouseLeftButtonDown += (_, e) => { e.Handled = true; Commit(); };
+        Grid.SetColumn(box, 0); Grid.SetColumn(addBtn, 1);
+        add.Children.Add(box); add.Children.Add(addBtn);
+        panel.Children.Add(add);
+
+        _overlayClosed = () => _settings.Save();
+        OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W);
+        Dispatcher.BeginInvoke(new Action(() => { box.Focus(); System.Windows.Input.Keyboard.Focus(box); }), DispatcherPriority.Input);
+    }
+
+    // ---- Pomodoro ----
+
+    private DispatcherTimer? _pomoTimer;
+    private int _pomoRemaining; private bool _pomoRunning; private bool _pomoBreak;
+
+    private string PomoText()
+    {
+        int s = _pomoRunning || _pomoRemaining > 0 ? _pomoRemaining : _settings.PomodoroWorkMin * 60;
+        return $"{s / 60:0}:{s % 60:00}";
+    }
+
+    private void PomoTick()
+    {
+        if (!_pomoRunning) return;
+        if (_pomoRemaining > 0) _pomoRemaining--;
+        if (_pomoRemaining <= 0)
+        {
+            _pomoBreak = !_pomoBreak;
+            _pomoRemaining = (_pomoBreak ? _settings.PomodoroBreakMin : _settings.PomodoroWorkMin) * 60;
+            try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
+        }
+    }
+
+    public void ShowPomodoroPanel(WidgetView view)
+    {
+        const double W = 240;
+        if (_pomoTimer == null) { _pomoTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) }; _pomoTimer.Tick += (_, _) => PomoTick(); _pomoTimer.Start(); }
+        if (_pomoRemaining == 0 && !_pomoRunning) _pomoRemaining = _settings.PomodoroWorkMin * 60;
+
+        var panel = new StackPanel { Width = W };
+        panel.Children.Add(SectionLabel("POMODORO"));
+        var phase = new TextBlock { Foreground = Sub(), FontSize = 12.5 };
+        var time = new TextBlock { Foreground = Brushes.White, FontSize = 36, FontWeight = FontWeights.Bold };
+        panel.Children.Add(phase); panel.Children.Add(time);
+
+        var btns = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+        var startBtn = SmallButton("", Color.FromRgb(0xE0, 0x53, 0x3C)); startBtn.Width = 84;
+        var resetBtn = SmallButton("Reset", Color.FromRgb(0x3A, 0x3A, 0x40)); resetBtn.Margin = new Thickness(8, 0, 0, 0);
+        var skipBtn = SmallButton("Skip", Color.FromRgb(0x3A, 0x3A, 0x40)); skipBtn.Margin = new Thickness(8, 0, 0, 0);
+        btns.Children.Add(startBtn); btns.Children.Add(resetBtn); btns.Children.Add(skipBtn);
+        panel.Children.Add(btns);
+
+        void Refresh()
+        {
+            phase.Text = _pomoBreak ? "Break" : "Focus";
+            time.Text = $"{_pomoRemaining / 60:0}:{_pomoRemaining % 60:00}";
+            ((TextBlock)startBtn.Child).Text = _pomoRunning ? "Pause" : "Start";
+        }
+        Refresh();
+        var ui = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        ui.Tick += (_, _) => Refresh();
+        ui.Start();
+        _overlayClosed = () => ui.Stop();
+
+        startBtn.MouseLeftButtonDown += (_, e) => { e.Handled = true; _pomoRunning = !_pomoRunning; Refresh(); };
+        resetBtn.MouseLeftButtonDown += (_, e) => { e.Handled = true; _pomoRunning = false; _pomoBreak = false; _pomoRemaining = _settings.PomodoroWorkMin * 60; Refresh(); };
+        skipBtn.MouseLeftButtonDown += (_, e) => { e.Handled = true; _pomoBreak = !_pomoBreak; _pomoRemaining = (_pomoBreak ? _settings.PomodoroBreakMin : _settings.PomodoroWorkMin) * 60; Refresh(); };
+
+        OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W);
+    }
+
+    // ---- Tic-Tac-Toe ----
+
+    public void ShowTicTacToePanel(WidgetView view)
+    {
+        const double W = 224;
+        var board = new char[9];
+        var panel = new StackPanel { Width = W };
+        var status = new TextBlock { Text = "Your move (X)", Foreground = Sub(), FontSize = 12.5, Margin = new Thickness(2, 0, 0, 8) };
+        panel.Children.Add(status);
+        var grid = new UniformGrid { Rows = 3, Columns = 3, Width = W - 28, Height = W - 28, HorizontalAlignment = HorizontalAlignment.Center };
+        panel.Children.Add(grid);
+        var cells = new Border[9];
+
+        void Draw()
+        {
+            for (int i = 0; i < 9; i++)
+                ((TextBlock)cells[i].Child).Text = board[i] == '\0' ? "" : board[i].ToString();
+        }
+        char Winner()
+        {
+            int[][] lines = { new[]{0,1,2}, new[]{3,4,5}, new[]{6,7,8}, new[]{0,3,6}, new[]{1,4,7}, new[]{2,5,8}, new[]{0,4,8}, new[]{2,4,6} };
+            foreach (var l in lines) if (board[l[0]] != '\0' && board[l[0]] == board[l[1]] && board[l[1]] == board[l[2]]) return board[l[0]];
+            return '\0';
+        }
+        int AiMove()
+        {
+            int[][] lines = { new[]{0,1,2}, new[]{3,4,5}, new[]{6,7,8}, new[]{0,3,6}, new[]{1,4,7}, new[]{2,5,8}, new[]{0,4,8}, new[]{2,4,6} };
+            foreach (char who in new[] { 'O', 'X' })   // win, then block
+                foreach (var l in lines)
+                {
+                    int empty = -1, count = 0;
+                    foreach (var c in l) { if (board[c] == who) count++; else if (board[c] == '\0') empty = c; }
+                    if (count == 2 && empty >= 0) return empty;
+                }
+            if (board[4] == '\0') return 4;
+            var free = Enumerable.Range(0, 9).Where(i => board[i] == '\0').ToList();
+            return free.Count == 0 ? -1 : free[Random.Shared.Next(free.Count)];
+        }
+        void Reset() { Array.Fill(board, '\0'); status.Text = "Your move (X)"; Draw(); }
+
+        for (int i = 0; i < 9; i++)
+        {
+            int idx = i;
+            var cell = new Border
+            {
+                Margin = new Thickness(3), CornerRadius = new CornerRadius(7), Cursor = Cursors.Hand,
+                Background = new SolidColorBrush(Color.FromArgb(0x1E, 0xFF, 0xFF, 0xFF)),
+                Child = new TextBlock { FontSize = 28, FontWeight = FontWeights.Bold, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+            };
+            cell.MouseLeftButtonDown += (_, e) =>
+            {
+                e.Handled = true;
+                if (board[idx] != '\0' || Winner() != '\0') return;
+                board[idx] = 'X'; Draw();
+                if (Winner() == 'X') { status.Text = "You win! \U0001F389"; return; }
+                if (board.All(c => c != '\0')) { status.Text = "Draw."; return; }
+                int m = AiMove(); if (m >= 0) board[m] = 'O'; Draw();
+                if (Winner() == 'O') status.Text = "Lintel wins.";
+                else if (board.All(c => c != '\0')) status.Text = "Draw.";
+            };
+            cells[i] = cell;
+            grid.Children.Add(cell);
+        }
+        Draw();
+
+        var reset = OpenButton("New game", Color.FromRgb(0x0A, 0x84, 0xFF), Reset);
+        panel.Children.Add(reset);
+        OpenDevOverlay(Card(panel, new Thickness(14, 12, 14, 12)), view, W);
     }
 
     private void FocusWindowForDialog()

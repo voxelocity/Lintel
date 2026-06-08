@@ -86,6 +86,8 @@ public partial class SettingsPanel : UserControl
         LiveBlurChk.IsChecked = _settings.LiveBlur;
         PotatoChk.IsChecked = _settings.PotatoMode;
         LiteChk.IsChecked = _settings.LiteMode;
+        WeatherLocBox.Text = _settings.WeatherLocation;
+        StockSymBox.Text = _settings.StockSymbols;
     }
 
     private void ImportTheme_Click(object sender, RoutedEventArgs e) => ImportThemeRequested?.Invoke();
@@ -119,6 +121,8 @@ public partial class SettingsPanel : UserControl
         _settings.LiveBlur = LiveBlurChk.IsChecked == true;
         _settings.PotatoMode = PotatoChk.IsChecked == true;
         _settings.LiteMode = LiteChk.IsChecked == true;
+        _settings.WeatherLocation = WeatherLocBox.Text.Trim();
+        _settings.StockSymbols = string.IsNullOrWhiteSpace(StockSymBox.Text) ? _settings.StockSymbols : StockSymBox.Text.Trim();
         _settings.RevealHoldMs = ParseI(RevealHoldBox.Text, _settings.RevealHoldMs);
         _settings.HideDelayMs = ParseI(HideDelayBox.Text, _settings.HideDelayMs);
         _settings.TriggerZonePx = ParseI(TriggerZoneBox.Text, _settings.TriggerZonePx);

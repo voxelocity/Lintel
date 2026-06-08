@@ -17,6 +17,9 @@ public interface IWidgetHost
 
     Metric GetMetric(string key);
 
+    /// <summary>Current bar label for a "stat" widget (volume, weather, todo, pomodoro, …).</summary>
+    string WidgetStat(WidgetView view);
+
     void OnModeClicked();
     void OnSettingsClicked();
     void RemoveWidget(WidgetView view);

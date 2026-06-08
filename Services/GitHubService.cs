@@ -82,6 +82,52 @@ public static class GitHubService
         return stats;
     }
 
+    // ---- your open PRs + recent repos (for the widget panel) ----
+
+    public sealed record GhItem(string Title, string Subtitle, string Url);
+
+    public static Task<List<GhItem>> MyPullRequestsAsync() => Task.Run(() =>
+    {
+        var list = new List<GhItem>();
+        if (!GhAvailable) return list;
+        try
+        {
+            var r = Run("gh", "search prs --author=@me --state=open --limit 6 --json title,url,repository", null, 15000);
+            if (!r.Ok) return list;
+            using var doc = JsonDocument.Parse(r.StdOut);
+            foreach (var e in doc.RootElement.EnumerateArray())
+            {
+                string title = e.GetProperty("title").GetString() ?? "";
+                string url = e.GetProperty("url").GetString() ?? "";
+                string repo = e.TryGetProperty("repository", out var rp) && rp.TryGetProperty("nameWithOwner", out var no) ? no.GetString() ?? "" : "";
+                list.Add(new GhItem(title, repo, url));
+            }
+        }
+        catch { }
+        return list;
+    });
+
+    public static Task<List<GhItem>> RecentReposAsync() => Task.Run(() =>
+    {
+        var list = new List<GhItem>();
+        if (!GhAvailable) return list;
+        try
+        {
+            var r = Run("gh", "repo list --limit 6 --json nameWithOwner,url,description", null, 15000);
+            if (!r.Ok) return list;
+            using var doc = JsonDocument.Parse(r.StdOut);
+            foreach (var e in doc.RootElement.EnumerateArray())
+            {
+                string name = e.GetProperty("nameWithOwner").GetString() ?? "";
+                string url = e.GetProperty("url").GetString() ?? "";
+                string desc = e.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "";
+                list.Add(new GhItem(name, desc, url));
+            }
+        }
+        catch { }
+        return list;
+    });
+
     // ---- clone ----
 
     public static Task<ProcResult> CloneAsync(string url, string targetDir) => Task.Run(() =>

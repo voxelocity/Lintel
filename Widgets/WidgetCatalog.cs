@@ -1,6 +1,6 @@
 namespace Lintel.Widgets;
 
-public enum WidgetKind { Gauge, Clock, Date, ActiveApp, Mode, Settings, Note, Windows, Workspaces, Load, Media, Claude, GitHub, Custom }
+public enum WidgetKind { Gauge, Clock, Date, ActiveApp, Mode, Settings, Note, Windows, Workspaces, Load, Media, Claude, GitHub, Custom, Todo, Pomodoro, Weather, Stocks, Volume, Brightness, TicTacToe }
 
 /// <summary>
 /// The JSON-serializable form of a user widget. Drop one of these in
@@ -43,11 +43,21 @@ public static class WidgetCatalog
         new("net",        "Network",     WidgetKind.Gauge,      "System"),
         new("battery",    "Battery",     WidgetKind.Gauge,      "System"),
         new("load",       "System Load", WidgetKind.Load,       "System"),
+        new("volume",     "Volume",      WidgetKind.Volume,     "System"),
+        new("brightness", "Brightness",  WidgetKind.Brightness, "System"),
 
         new("media",      "Media",       WidgetKind.Media,      "Media"),
 
         new("claude",     "Claude",      WidgetKind.Claude,     "Developer"),
         new("github",     "GitHub",      WidgetKind.GitHub,     "Developer"),
+
+        new("weather",    "Weather",         WidgetKind.Weather,   "Info"),
+        new("stocks",     "Stocks & Crypto", WidgetKind.Stocks,    "Info"),
+
+        new("todo",       "To-Do",       WidgetKind.Todo,       "Productivity"),
+        new("pomodoro",   "Pomodoro",    WidgetKind.Pomodoro,   "Productivity"),
+
+        new("tictactoe",  "Tic-Tac-Toe", WidgetKind.TicTacToe,  "Fun"),
 
         new("activeapp",  "Active App",  WidgetKind.ActiveApp,  "Windows"),
         new("windows",    "App Tabs",    WidgetKind.Windows,    "Windows"),
@@ -80,7 +90,7 @@ public static class WidgetCatalog
 
     /// <summary>Category display order in the add menu.</summary>
     public static readonly string[] Categories =
-        { "System", "Media", "Developer", "Windows", "Time & Date", "Lintel", "Custom" };
+        { "System", "Media", "Developer", "Info", "Productivity", "Windows", "Time & Date", "Fun", "Lintel", "Custom" };
 
     public static WidgetDescriptor? Find(string key) =>
         BuiltIns.Concat(_custom).FirstOrDefault(w => w.Key == key);

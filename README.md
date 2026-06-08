@@ -39,9 +39,15 @@ The bar is built from widgets arranged into three zones — **left**, **center**
 - **App Tabs** — your open windows shown as taskbar-style tabs (focused one highlighted, click to switch). A compact mode shows just the focused window with an expand chevron that drops a vertical switcher.
 - **Quick Note** — a persistent scratch note; click to edit inline.
 - **Workspaces** — two arrow buttons with the **current virtual-desktop name** between them; click an arrow to switch desktops.
-- **Media** — now-playing from the Windows media session. Compact shows the cover art + an audio visualizer; click to expand a player with a large cover, title/artist, progress bar, transport controls, and a bigger visualizer.
+- **Media** — now-playing from the Windows media session. Compact shows the cover art + an audio visualizer; click to expand a player with a large cover, **title/artist/album**, progress bar, transport controls, a bigger visualizer, and **synced lyrics** (from lrclib).
+- **Volume** / **Brightness** — speaker / sun with the current level; click for a slider (and mute). Brightness works on laptops/integrated displays.
+- **Weather** — current temperature + condition (auto-located); the dropdown adds feels-like, humidity, wind and a 3-day forecast. Set a location in Advanced settings.
+- **Stocks & Crypto** — live prices + daily change for any Yahoo Finance tickers (e.g. `BTC-USD, AAPL`), configurable in Advanced settings.
+- **To-Do** — a quick checklist (add / check off / delete), saved with your settings; the bar shows the open count.
+- **Pomodoro** — a focus/break timer counting down on the bar; start/pause/reset/skip in the dropdown.
+- **Tic-Tac-Toe** — a quick game vs. the bar, right in a dropdown.
 - **Claude** — reads Claude Code's local usage to show a **token-usage heatmap** (last 17 weeks), your current 5-hour window usage / tokens left, when the window frees up, today's total, and a button that **opens the Claude desktop app** (or claude.ai). Set an optional token budget in Advanced settings.
-- **GitHub** — your **contribution graph** plus quick actions: **clone a repo** (`owner/repo` or URL) straight to your Desktop, and **create a new repo from a folder** and push it. Uses the `gh` CLI.
+- **GitHub** — your **contribution graph**, **your open PRs** and **recent repos** (click to open), plus quick actions: **clone a repo** (`owner/repo` or URL) straight to your Desktop, and **create a new repo from a folder** and push it. Uses the `gh` CLI.
 - **Custom widgets** — your own, from a JSON file (see below).
 
 ## Make it yours — custom themes & widgets
