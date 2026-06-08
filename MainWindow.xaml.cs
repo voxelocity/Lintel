@@ -185,7 +185,8 @@ public partial class MainWindow : Window, IWidgetHost
     private bool _backdrop;
     private bool _frosted;                     // theme uses the live-blur frosted glass
     private bool _potato;                      // low-end mode: no blur, reduced animation
-    private bool _noBlur;                       // Potato or Lite: blur effects off
+    private bool _lite;                         // lite mode: bar blur kept, dropdowns half-opacity (no blur)
+    private bool _dropHalf;                     // dropdowns render at half opacity (Lite)
     private DropdownChrome _chrome;            // OS-window styling for dropdowns
     private bool _backdropAero;                // classic Aero blur vs frosted acrylic
     private bool _useOsBlur = false;           // OS blur is unreliable on Win11 → use translucency
@@ -207,10 +208,12 @@ public partial class MainWindow : Window, IWidgetHost
     {
         var theme = Themes.Resolve(_settings);
         _potato = _settings.PotatoMode;
-        _noBlur = _potato || _settings.LiteMode;   // Lite keeps animations but drops the blur
+        _lite = _settings.LiteMode;
         _chrome = theme.Chrome;
         _effectiveBarHeight = theme.BarHeight ?? _settings.BarHeight;
-        _frosted = theme.FrostedGlass && !theme.SeparatedZones && _settings.LiveBlur && !_noBlur;
+        bool glass = theme.FrostedGlass && !theme.SeparatedZones && _settings.LiveBlur;
+        _frosted = glass && !_potato && !_lite;     // live-blur dropdowns (off in Lite/Potato)
+        _dropHalf = glass && _lite && !_potato;     // Lite: dropdowns are half-opacity instead of blurred
         Controls.AnimatedBarPanel.AnimationsEnabled = !_potato;
         _backdrop = theme.Acrylic;
         _backdropAero = theme.AeroBlur;
@@ -291,7 +294,7 @@ public partial class MainWindow : Window, IWidgetHost
 
         // Preferred: custom real-time blur — capture the live content behind the bar (the bar excludes
         // itself from capture) and blur it. Tracks live windows; the blur amount is ours to control.
-        if (wantGlass && _settings.LiveBlur && !_noBlur)
+        if (wantGlass && _settings.LiveBlur && !_potato)
         {
             StartLiveBlur(true);
             FrostImage.Effect = LiveBlurEffect();
@@ -1114,20 +1117,27 @@ public partial class MainWindow : Window, IWidgetHost
         if (_chrome == DropdownChrome.Luna) return BuildLunaCard(content, padding, shadow);
         if (_chrome == DropdownChrome.Aero) return BuildAeroCard(content, padding, shadow);
 
-        // Frosted themes: a live-blurred backdrop behind the card + a translucent theme tint, clipped
-        // to the rounded corners. The blur capture is filled in once the popup is positioned.
-        if (_frosted && !_shoulder)
+        // Glass themes: a live-blurred backdrop (or, in Lite mode, a half-opacity tint) behind the
+        // content + a glassy bevel, clipped to the rounded corners.
+        if ((_frosted || _dropHalf) && !_shoulder)
         {
             const double R = 14;
-            var frost = new Border { CornerRadius = new CornerRadius(R) };       // blurred capture (set later)
-            var tint = new Border { CornerRadius = new CornerRadius(R), Background = new SolidColorBrush(_backdropTint) };  // same tint as the bar → clear glass
-            var inner = new Border { Padding = padding, Child = content };
             var grid = new Grid();
-            grid.Children.Add(frost);
-            grid.Children.Add(tint);
-            grid.Children.Add(inner);
+            if (_frosted)
+            {
+                var frost = new Border { CornerRadius = new CornerRadius(R) };   // blurred capture (set later)
+                var tint = new Border { CornerRadius = new CornerRadius(R), Background = new SolidColorBrush(_backdropTint) };  // same tint as the bar → clear glass
+                grid.Children.Add(frost);
+                grid.Children.Add(tint);
+                _pendingFrost = frost;
+            }
+            else   // Lite: half-opacity theme material, no blur
+            {
+                var dm = _dropMaterial;
+                grid.Children.Add(new Border { CornerRadius = new CornerRadius(R), Background = new SolidColorBrush(Color.FromArgb(0x80, dm.R, dm.G, dm.B)) });
+            }
+            grid.Children.Add(new Border { Padding = padding, Child = content });
             grid.Children.Add(ShineOverlay(new CornerRadius(R)));   // glassy bevel
-            _pendingFrost = frost;
             return new Border
             {
                 CornerRadius = new CornerRadius(R),
@@ -1266,7 +1276,9 @@ public partial class MainWindow : Window, IWidgetHost
         }
         else
         {
-            var solid = new Border { CornerRadius = new CornerRadius(R), Background = new SolidColorBrush(_dropMaterial) };
+            // Lite → half-opacity body; otherwise solid.
+            byte a = _dropHalf ? (byte)0x80 : _dropMaterial.A;
+            var solid = new Border { CornerRadius = new CornerRadius(R), Background = new SolidColorBrush(Color.FromArgb(a, d.R, d.G, d.B)) };
             Grid.SetRowSpan(solid, 2);
             grid.Children.Add(solid);
         }
@@ -1279,8 +1291,8 @@ public partial class MainWindow : Window, IWidgetHost
         Grid.SetRow(titleGlass, 0);
         grid.Children.Add(titleGlass);
 
-        // Body: match the bar's tint when frosted (clear glass), else a solid dark body.
-        var bodyBrush = _frosted ? (Brush)new SolidColorBrush(_backdropTint) : new SolidColorBrush(Color.FromArgb(0xFF, d.R, d.G, d.B));
+        // Body: bar tint when frosted (clear glass); otherwise the base layer already provides the colour.
+        var bodyBrush = _frosted ? (Brush)new SolidColorBrush(_backdropTint) : Brushes.Transparent;
         var bodyTint = new Border { Background = bodyBrush, Padding = padding, Child = content };
         Grid.SetRow(bodyTint, 1);
         grid.Children.Add(bodyTint);
