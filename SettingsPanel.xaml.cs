@@ -18,6 +18,7 @@ public partial class SettingsPanel : UserControl
     private readonly AppSettings _settings;
     private int _selMode;
     private int _selTheme;
+    private int _selPos;
     private bool _themeTouched;
 
     public double CurrentWidth { get; private set; } = QuickWidth;
@@ -59,8 +60,10 @@ public partial class SettingsPanel : UserControl
             "Squircles" => 0,
             _ => -1
         };
+        _selPos = (int)_settings.BarPosition;
         UpdateModeButtons();
         UpdateThemeButtons();
+        UpdatePosButtons();
 
         // quick
         QBarHeight.Text = _settings.BarHeight.ToString(CultureInfo.InvariantCulture);
@@ -97,9 +100,20 @@ public partial class SettingsPanel : UserControl
     private static readonly LintelTheme[] ThemeOrder =
         { LintelTheme.Squircles, LintelTheme.Power, LintelTheme.Islands, LintelTheme.Mond };
 
+    private void Pos_Click(object sender, RoutedEventArgs e) { _selPos = int.Parse((string)((Button)sender).Tag); UpdatePosButtons(); }
+
+    private void UpdatePosButtons()
+    {
+        var on = new SolidColorBrush(Color.FromRgb(0x0A, 0x84, 0xFF));
+        var dim = new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xD5));
+        Button[] b = { PosTop, PosBottom };
+        for (int i = 0; i < b.Length; i++) { b[i].Background = _selPos == i ? on : Brushes.Transparent; b[i].Foreground = _selPos == i ? Brushes.White : dim; }
+    }
+
     private void WriteQuick()
     {
         _settings.Mode = (VisibilityMode)_selMode;
+        _settings.BarPosition = (BarEdge)_selPos;
         _settings.BarHeight = ParseD(QBarHeight.Text, _settings.BarHeight);
         _settings.OpenOnHover = QHover.IsChecked == true;
         _settings.Use24HourClock = QClock24.IsChecked == true;
@@ -109,6 +123,7 @@ public partial class SettingsPanel : UserControl
     private void WriteAdvanced()
     {
         _settings.Mode = (VisibilityMode)_selMode;
+        _settings.BarPosition = (BarEdge)_selPos;
         // Only override the theme if the user actually picked a built-in segment here —
         // otherwise leave a custom (imported) theme selection intact.
         if (_themeTouched && _selTheme >= 0)

@@ -43,6 +43,7 @@ public sealed class ThemeDef
     public double BubbleGloss;      // 0 = none; glossy sheen on each widget bubble
 
     public DropdownChrome Chrome;   // OS-window styling for dropdowns (XP Luna / Vista Aero)
+    public bool DropShine;          // glassy bevel highlight around the dropdown (glass OS themes)
     public Color? LeftIslandTop;    // coloured island over the LEFT zone (e.g. XP's green Start area)
     public Color? LeftIslandBottom;
 }
@@ -224,8 +225,8 @@ public static class Themes
         Acrylic = true,
         AeroBlur = true,
         FrostedGlass = true,
-        AcrylicTint = Color.FromArgb(0x34, 0x12, 0x1C, 0x32),   // dark blue, very translucent — wallpaper shows through
-        DropdownColor = Color.FromArgb(0xEC, 0x14, 0x1E, 0x30), // readable dropdown panel
+        AcrylicTint = Color.FromArgb(0x74, 0x09, 0x1B, 0x4E),   // dark, clear blue glass
+        DropdownColor = Color.FromArgb(0xEC, 0x0E, 0x1F, 0x3C), // readable dropdown panel
         BarHeight = 38,
         GlossStrength = 0.12,                                   // just a hint of sheen, not a gradient
         TopEdge = Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF),
@@ -233,6 +234,7 @@ public static class Themes
         FontFamily = "Segoe UI",
         BubbleBorder = Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF),
         BubbleGloss = 0.16,
+        DropShine = true,   // glassy bevel on Win7 dropdowns
     };
 
     // Built-in themes, resolved as a function of the user's squircle-corner setting.

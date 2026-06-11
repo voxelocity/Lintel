@@ -197,6 +197,11 @@ public partial class MainWindow : Window, IWidgetHost
     private bool _lite;                         // lite mode: bar blur kept, dropdowns half-opacity (no blur)
     private bool _dropHalf;                     // dropdowns render at half opacity (Lite)
     private DropdownChrome _chrome;            // OS-window styling for dropdowns
+    private bool _dropShine;                    // glassy bevel highlight on dropdowns
+    private bool _barBottom;                     // bar docked to the bottom edge
+    private RECT _workArea;                       // monitor work area (excludes the OS taskbar)
+    private int _barTopPx;                        // bar's top edge in device pixels
+    private double HiddenOffset => _barBottom ? _effectiveBarHeight : -_effectiveBarHeight;
     private bool _backdropAero;                // classic Aero blur vs frosted acrylic
     private bool _useOsBlur = false;           // OS blur is unreliable on Win11 → use translucency
     private Color _backdropTint;
@@ -218,7 +223,9 @@ public partial class MainWindow : Window, IWidgetHost
         var theme = Themes.Resolve(_settings);
         _potato = _settings.PotatoMode;
         _lite = _settings.LiteMode;
+        _barBottom = _settings.BarPosition == BarEdge.Bottom;
         _chrome = theme.Chrome;
+        _dropShine = theme.DropShine;
         _effectiveBarHeight = theme.BarHeight ?? _settings.BarHeight;
         bool glass = theme.FrostedGlass && !theme.SeparatedZones && _settings.LiveBlur;
         _frosted = glass && !_potato && !_lite;     // live-blur dropdowns (off in Lite/Potato)
@@ -291,6 +298,18 @@ public partial class MainWindow : Window, IWidgetHost
         ApplyLayout();
         ApplyBackdrop(_shown && _backdrop);
         ApplyFrost(theme);
+        ApplyBarPlacement();
+    }
+
+    /// <summary>Open dropdowns upward (off the bottom edge) when the bar is docked to the bottom.</summary>
+    private void ApplyBarPlacement()
+    {
+        var place = _barBottom ? PlacementMode.Top : PlacementMode.Bottom;
+        double s = _barBottom ? -1 : 1;
+        GraphPopup.Placement = place; GraphPopup.VerticalOffset = 6 * s;
+        PlusPopup.Placement = place; PlusPopup.VerticalOffset = 8 * s;
+        AddPopup.Placement = place; AddPopup.VerticalOffset = 6 * s;
+        OverlayPopup.Placement = place;
     }
 
     /// <summary>
@@ -365,14 +384,19 @@ public partial class MainWindow : Window, IWidgetHost
         var zones = new[] { (ZoneLeft, PanelLeft), (ZoneCenter, PanelCenter), (ZoneRight, PanelRight) };
         if (theme.SeparatedZones)
         {
-            var bg = new SolidColorBrush(theme.ZoneBackground); bg.Freeze();
+            var z = theme.ZoneBackground;
+            Color Lift(int d) => Color.FromArgb(z.A, (byte)Math.Clamp(z.R + d, 0, 255), (byte)Math.Clamp(z.G + d, 0, 255), (byte)Math.Clamp(z.B + d, 0, 255));
+            var grad = VGrad((Lift(0x14), 0), (z, 0.5), (Lift(-0x08), 1));   // glassy depth
+            var border = new SolidColorBrush(Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF)); border.Freeze();
             foreach (var (zone, panel) in zones)
             {
-                zone.Background = bg;
-                zone.CornerRadius = new CornerRadius(10);
-                zone.Padding = new Thickness(16, 0, 16, 0);
-                zone.Margin = new Thickness(4, 3, 4, 3);
-                zone.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 12, ShadowDepth = 1, Opacity = 0.35, Color = Colors.Black };
+                zone.Background = grad;
+                zone.BorderBrush = border;
+                zone.BorderThickness = new Thickness(1);
+                zone.CornerRadius = new CornerRadius(13);
+                zone.Padding = new Thickness(14, 0, 14, 0);
+                zone.Margin = new Thickness(5, 4, 5, 4);
+                zone.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 18, ShadowDepth = 2, Opacity = 0.45, Color = Colors.Black };
                 zone.Visibility = panel.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             }
         }
@@ -381,6 +405,7 @@ public partial class MainWindow : Window, IWidgetHost
             foreach (var (zone, panel) in zones)
             {
                 zone.Background = Brushes.Transparent;
+                zone.BorderThickness = new Thickness(0);
                 zone.CornerRadius = new CornerRadius(0);
                 zone.Padding = new Thickness(0);
                 zone.Margin = new Thickness(0);
@@ -433,21 +458,25 @@ public partial class MainWindow : Window, IWidgetHost
     private void ApplyLayout()
     {
         if (_hwnd == IntPtr.Zero) return;
-        _monitorBounds = Monitors.Pick(_settings.MonitorIndex).Bounds;
+        var mon = Monitors.Pick(_settings.MonitorIndex);
+        _monitorBounds = mon.Bounds;
+        _workArea = mon.WorkArea;
 
         uint dpi = GetDpiForWindow(_hwnd);
         double scale = dpi == 0 ? 1.0 : dpi / 96.0;
         _scaleX = _scaleY = scale;
         _barHeightPx = (int)Math.Round(_effectiveBarHeight * scale);
+        // Bottom: sit just above the OS taskbar (work area). Top: the very top edge.
+        _barTopPx = _barBottom ? _workArea.Bottom - _barHeightPx : _monitorBounds.Top;
 
         Left = _monitorBounds.Left / scale;
-        Top = _monitorBounds.Top / scale;
+        Top = _barTopPx / scale;
         Width = _monitorBounds.Width / scale;
         Height = _effectiveBarHeight;
 
         SetWindowPos(_hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
-        if (!_shown) SlideTransform.Y = -_effectiveBarHeight;
+        if (!_shown) SlideTransform.Y = HiddenOffset;
     }
 
     public void ApplyMode(bool initial = false)
@@ -457,7 +486,7 @@ public partial class MainWindow : Window, IWidgetHost
 
         if (_settings.Mode == VisibilityMode.AlwaysOn)
         {
-            _appBar?.Reserve(_monitorBounds, _barHeightPx);
+            _appBar?.Reserve(_monitorBounds, _barHeightPx, _barBottom);
             SetShown(true, animate: !initial);
         }
         else
@@ -568,9 +597,9 @@ public partial class MainWindow : Window, IWidgetHost
         var barRect = new RECT
         {
             Left = _monitorBounds.Left,
-            Top = _monitorBounds.Top,
+            Top = _barTopPx,
             Right = _monitorBounds.Right,
-            Bottom = _monitorBounds.Top + _barHeightPx
+            Bottom = _barTopPx + _barHeightPx
         };
 
         var fg = ForegroundProbe.Inspect(barRect, _monitorBounds);
@@ -607,8 +636,8 @@ public partial class MainWindow : Window, IWidgetHost
     {
         if (!GetCursorPos(out var p)) return _shown;
         bool xInRange = p.X >= _monitorBounds.Left && p.X < _monitorBounds.Right;
-        bool atTopEdge = xInRange && p.Y <= _monitorBounds.Top + _settings.TriggerZonePx;
-        bool overBar = xInRange && p.Y >= _monitorBounds.Top && p.Y <= _monitorBounds.Top + _barHeightPx;
+        bool atTopEdge = xInRange && (_barBottom ? p.Y >= _barTopPx + _barHeightPx - _settings.TriggerZonePx : p.Y <= _monitorBounds.Top + _settings.TriggerZonePx);
+        bool overBar = xInRange && p.Y >= _barTopPx && p.Y <= _barTopPx + _barHeightPx;
 
         if (atTopEdge) _hotSince ??= now;
         else if (!overBar) _hotSince = null;
@@ -673,7 +702,7 @@ public partial class MainWindow : Window, IWidgetHost
         // Pause the capture loop while the bar is hidden; refresh immediately when it returns.
         if (_blurTimer != null) { if (show) { _blurTimer.Start(); CaptureBlurFrame(); } else _blurTimer.Stop(); }
 
-        double target = show ? 0 : -_effectiveBarHeight;
+        double target = show ? 0 : HiddenOffset;
         int ms = (animate && !_potato) ? _settings.AnimationMs : 0;
 
         if (ms <= 0)
@@ -1005,7 +1034,7 @@ public partial class MainWindow : Window, IWidgetHost
 
     private void GrowFromTop(ScaleTransform scale, FrameworkElement card)
     {
-        card.RenderTransformOrigin = new Point(0.5, 0);
+        card.RenderTransformOrigin = new Point(0.5, _barBottom ? 1 : 0);
         if (_potato)
         {
             scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
@@ -1067,9 +1096,9 @@ public partial class MainWindow : Window, IWidgetHost
 
         OverlayHost.Content = content;
         OverlayPopup.PlacementTarget = target;
-        OverlayPopup.Placement = PlacementMode.Bottom;
+        OverlayPopup.Placement = _barBottom ? PlacementMode.Top : PlacementMode.Bottom;
         OverlayPopup.HorizontalOffset = horizontalOffset;
-        OverlayPopup.VerticalOffset = _fluid ? -2 : 4;   // overlap the bar slightly so it's seamless
+        OverlayPopup.VerticalOffset = (_fluid ? -2 : 4) * (_barBottom ? -1 : 1);   // overlap the bar slightly so it's seamless
 
         if (!_overlayHover) ShowScrim();   // hover dropdowns are non-modal (no click-catcher)
         OverlayPopup.IsOpen = true;
@@ -1147,7 +1176,7 @@ public partial class MainWindow : Window, IWidgetHost
                 grid.Children.Add(new Border { CornerRadius = new CornerRadius(R), Background = new SolidColorBrush(Color.FromArgb(0x80, dm.R, dm.G, dm.B)) });
             }
             grid.Children.Add(new Border { Padding = padding, Child = content });
-            grid.Children.Add(ShineOverlay(new CornerRadius(R)));   // glassy bevel
+            if (_dropShine) grid.Children.Add(ShineOverlay(new CornerRadius(R)));   // glassy bevel (glass OS themes only)
             return new Border
             {
                 CornerRadius = new CornerRadius(R),
@@ -1731,11 +1760,11 @@ public partial class MainWindow : Window, IWidgetHost
 
         // header: cover + title/artist
         var header = new Grid();
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(66) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(86) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var coverBorder = new Border { Width = 64, Height = 64, CornerRadius = new CornerRadius(8), ClipToBounds = true, Background = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)), VerticalAlignment = VerticalAlignment.Top };
+        var coverBorder = new Border { Width = 76, Height = 76, CornerRadius = new CornerRadius(10), ClipToBounds = true, Background = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)), VerticalAlignment = VerticalAlignment.Top, Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 14, ShadowDepth = 3, Opacity = 0.4, Color = Colors.Black } };
         var coverImg = new Image { Stretch = Stretch.UniformToFill };
-        var coverPh = new System.Windows.Shapes.Path { Data = Widgets.Icons.Get("media"), Fill = new SolidColorBrush(accent), Stretch = Stretch.Uniform, Width = 30, Height = 30, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var coverPh = new System.Windows.Shapes.Path { Data = Widgets.Icons.Get("media"), Fill = new SolidColorBrush(accent), Stretch = Stretch.Uniform, Width = 34, Height = 34, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         var coverInner = new Grid(); coverInner.Children.Add(coverPh); coverInner.Children.Add(coverImg);
         coverBorder.Child = coverInner;
         Grid.SetColumn(coverBorder, 0);

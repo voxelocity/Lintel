@@ -17,14 +17,14 @@ internal sealed class AppBarManager
 
     public bool IsRegistered => _registered;
 
-    /// <summary>Reserve a strip of height <paramref name="heightPx"/> at the top of the given monitor.</summary>
-    public void Reserve(RECT monitorBounds, int heightPx)
+    /// <summary>Reserve a strip of height <paramref name="heightPx"/> at the top (or bottom) of the monitor.</summary>
+    public void Reserve(RECT monitorBounds, int heightPx, bool bottom = false)
     {
         var data = new APPBARDATA
         {
             cbSize = Marshal.SizeOf<APPBARDATA>(),
             hWnd = _hwnd,
-            uEdge = ABE_TOP
+            uEdge = bottom ? ABE_BOTTOM : ABE_TOP
         };
 
         if (!_registered)
@@ -34,18 +34,14 @@ internal sealed class AppBarManager
         }
 
         // Propose the rectangle, let the shell adjust it, then commit.
-        data.rc = new RECT
-        {
-            Left = monitorBounds.Left,
-            Top = monitorBounds.Top,
-            Right = monitorBounds.Right,
-            Bottom = monitorBounds.Top + heightPx
-        };
+        data.rc = bottom
+            ? new RECT { Left = monitorBounds.Left, Top = monitorBounds.Bottom - heightPx, Right = monitorBounds.Right, Bottom = monitorBounds.Bottom }
+            : new RECT { Left = monitorBounds.Left, Top = monitorBounds.Top, Right = monitorBounds.Right, Bottom = monitorBounds.Top + heightPx };
 
         SHAppBarMessage(ABM_QUERYPOS, ref data);
-        // Honour the height the shell handed back, keep it pinned to the top edge.
-        data.rc.Top = monitorBounds.Top;
-        data.rc.Bottom = monitorBounds.Top + heightPx;
+        // Honour the position the shell handed back (it stacks us above the taskbar), keep our height.
+        if (bottom) data.rc.Top = data.rc.Bottom - heightPx;
+        else { data.rc.Top = monitorBounds.Top; data.rc.Bottom = monitorBounds.Top + heightPx; }
         SHAppBarMessage(ABM_SETPOS, ref data);
     }
 

@@ -52,6 +52,7 @@ internal static class NativeMethods
     public const uint ABM_GETSTATE = 0x00000004;
 
     public const uint ABE_TOP = 1;
+    public const uint ABE_BOTTOM = 3;
 
     [DllImport("shell32.dll", CallingConvention = CallingConvention.StdCall)]
     public static extern uint SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);

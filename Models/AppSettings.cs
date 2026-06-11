@@ -25,6 +25,9 @@ public sealed class TodoItem
     public bool Done { get; set; }
 }
 
+/// <summary>Which screen edge the bar docks to.</summary>
+public enum BarEdge { Top, Bottom }
+
 public enum VisibilityMode
 {
     /// <summary>Bar is always visible and reserves desktop space (like the macOS menu bar).</summary>
@@ -43,6 +46,9 @@ public enum VisibilityMode
 public sealed class AppSettings
 {
     public VisibilityMode Mode { get; set; } = VisibilityMode.Dynamic;
+
+    /// <summary>Which screen edge the bar docks to.</summary>
+    public BarEdge BarPosition { get; set; } = BarEdge.Top;
 
     /// <summary>Height of the bar, in device-independent pixels.</summary>
     public double BarHeight { get; set; } = 32;
