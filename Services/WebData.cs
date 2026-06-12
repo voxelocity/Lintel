@@ -92,36 +92,3 @@ public static class Stocks
         return list;
     });
 }
-
-// ---- song lyrics (lrclib.net, no key) ----
-
-public static class Lyrics
-{
-    public static Task<string?> GetAsync(string artist, string title) => Task.Run(async () =>
-    {
-        if (string.IsNullOrWhiteSpace(title)) return null;
-        try
-        {
-            string url = $"https://lrclib.net/api/get?artist_name={Uri.EscapeDataString(artist)}&track_name={Uri.EscapeDataString(title)}";
-            string json = await Http.Client.GetStringAsync(url);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            if (root.TryGetProperty("plainLyrics", out var pl) && pl.ValueKind == JsonValueKind.String)
-            {
-                var s = pl.GetString();
-                if (!string.IsNullOrWhiteSpace(s)) return s;
-            }
-            if (root.TryGetProperty("syncedLyrics", out var sl) && sl.ValueKind == JsonValueKind.String)
-                return StripTimestamps(sl.GetString());
-        }
-        catch { }
-        return null;
-    });
-
-    private static string? StripTimestamps(string? lrc)
-    {
-        if (lrc == null) return null;
-        var lines = lrc.Split('\n').Select(l => System.Text.RegularExpressions.Regex.Replace(l, @"\[\d+:\d+\.\d+\]", "").Trim());
-        return string.Join("\n", lines.Where(l => l.Length > 0));
-    }
-}

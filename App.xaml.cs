@@ -71,6 +71,7 @@ public partial class App : Application
         menu.Items.Add(visibility);
 
         menu.Items.Add(new WinForms.ToolStripSeparator());
+        menu.Items.Add("Check for Updates…", null, (_, _) => CheckForUpdates());
         menu.Items.Add("Quit Lintel", null, (_, _) => Shutdown());
 
         ThemeMenuItems(menu.Items);
@@ -114,6 +115,23 @@ public partial class App : Application
         public override Color SeparatorLight => Color.FromArgb(60, 60, 66);
         public override Color CheckBackground => Accent;
         public override Color CheckSelectedBackground => Accent;
+    }
+
+    /// <summary>Launch the bundled updater (downloads the latest release and swaps the exe). Falls
+    /// back to opening the releases page if the updater isn't present next to the app.</summary>
+    private void CheckForUpdates()
+    {
+        try
+        {
+            string dir = AppContext.BaseDirectory;
+            string updater = System.IO.Path.Combine(dir, "LintelUpdater.exe");
+            string self = System.IO.Path.Combine(dir, "Lintel.exe");
+            if (System.IO.File.Exists(updater))
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(updater, $"\"{self}\"") { UseShellExecute = true });
+            else
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/voxelocity/Lintel/releases/latest") { UseShellExecute = true });
+        }
+        catch { /* ignore */ }
     }
 
     private void AddModeItem(WinForms.ToolStripMenuItem parent, string label, VisibilityMode mode)

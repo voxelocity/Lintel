@@ -26,7 +26,7 @@ public sealed class TodoItem
 }
 
 /// <summary>Which screen edge the bar docks to.</summary>
-public enum BarEdge { Top, Bottom }
+public enum BarEdge { Top, Bottom, Left, Right }
 
 public enum VisibilityMode
 {

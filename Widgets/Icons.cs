@@ -32,8 +32,34 @@ public static class Icons
         "volume" => Volume(),
         "brightness" => Brightness(),
         "tictactoe" => TicTacToe(),
+        "launcher" => Launcher(),
+        "start" => Start(),
+        "tray" => Tray(),
         _ => null
     };
+
+    // 3×3 app grid (application launcher)
+    private static Geometry Launcher()
+    {
+        var g = new GeometryGroup();
+        double[] c = { 4, 10, 16 };
+        foreach (var y in c) foreach (var x in c) g.Children.Add(R(x, y, 4, 4, 1.2));
+        return Freeze(g);
+    }
+
+    // Windows four-pane flag (Start)
+    private static Geometry Start()
+    {
+        var g = new GeometryGroup();
+        g.Children.Add(R(3.5, 4, 7.4, 7.4, 0.8));
+        g.Children.Add(R(13.1, 4, 7.4, 7.4, 0.8));
+        g.Children.Add(R(3.5, 12.6, 7.4, 7.4, 0.8));
+        g.Children.Add(R(13.1, 12.6, 7.4, 7.4, 0.8));
+        return Freeze(g);
+    }
+
+    // Up-chevron (show hidden tray icons)
+    private static Geometry Tray() => Freeze(Geometry.Parse("M5,15.5 L12,8.5 L19,15.5 L16.9,17.6 L12,12.7 L7.1,17.6 Z"));
 
     // Checklist
     private static Geometry Todo()

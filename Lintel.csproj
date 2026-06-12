@@ -12,7 +12,7 @@
     <ApplicationIcon>assets\lintel.ico</ApplicationIcon>
     <AssemblyName>Lintel</AssemblyName>
     <RootNamespace>Lintel</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Authors>Lintel</Authors>
     <Product>Lintel</Product>
     <!-- WPF reads DPI awareness from app.manifest; the WinForms toolchain warns about it regardless. -->
@@ -26,6 +26,15 @@
   <ItemGroup>
     <Using Remove="System.Drawing" />
     <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <!-- The standalone updater is its own project nested in this folder. Keep its sources (and the
+       publish output) out of the main app's compilation. -->
+  <ItemGroup>
+    <Compile Remove="Updater\**\*.cs" />
+    <Compile Remove="updater-out\**\*.cs" />
+    <Page Remove="Updater\**\*.xaml" />
+    <None Remove="Updater\**\*" />
   </ItemGroup>
 
   <ItemGroup>

@@ -17,8 +17,11 @@ public interface IWidgetHost
 
     Metric GetMetric(string key);
 
-    /// <summary>Current bar label for a "stat" widget (volume, weather, todo, pomodoro, …).</summary>
+    /// <summary>Current bar label for a "stat" widget (weather, todo, pomodoro, …).</summary>
     string WidgetStat(WidgetView view);
+
+    /// <summary>Current 0..100 level for a slider widget (volume / brightness), or -1 if unknown.</summary>
+    int WidgetLevel(WidgetView view);
 
     void OnModeClicked();
     void OnSettingsClicked();
@@ -39,6 +42,12 @@ public interface IWidgetHost
     // Interactive widgets
     void ShowNote(WidgetView view);
     void ShowWindowSwitcher(WidgetView view);
+    /// <summary>Open the app-launcher grid dropdown.</summary>
+    void ShowLauncher(WidgetView view);
+    /// <summary>Open the real Windows Start menu.</summary>
+    void OpenStartMenu();
+    /// <summary>Open the system-tray flyout (quick access / overflow).</summary>
+    void ShowTray(WidgetView view);
     int OpenWindowCount();
     void SwitchWorkspace(int direction);
 

@@ -18,6 +18,14 @@ public sealed class AnimatedBarPanel : Panel
 
     public double Spacing { get => (double)GetValue(SpacingProperty); set => SetValue(SpacingProperty, value); }
 
+    /// <summary>Lay children left-to-right (Horizontal, default) or top-to-bottom (Vertical, side bars).</summary>
+    public static readonly DependencyProperty OrientationProperty =
+        DependencyProperty.Register(nameof(Orientation), typeof(Orientation), typeof(AnimatedBarPanel),
+            new FrameworkPropertyMetadata(Orientation.Horizontal, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsArrange));
+
+    public Orientation Orientation { get => (Orientation)GetValue(OrientationProperty); set => SetValue(OrientationProperty, value); }
+    private bool Vert => Orientation == Orientation.Vertical;
+
     /// <summary>If set, a thin vertical line is drawn in the gap between adjacent widgets (Mond theme).</summary>
     public static readonly DependencyProperty DividerBrushProperty =
         DependencyProperty.Register(nameof(DividerBrush), typeof(Brush), typeof(AnimatedBarPanel),
@@ -35,29 +43,41 @@ public sealed class AnimatedBarPanel : Panel
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        double w = 0, h = 0;
+        double along = 0, cross = 0;
         foreach (UIElement child in InternalChildren)
         {
-            child.Measure(new Size(double.PositiveInfinity, availableSize.Height));
-            w += child.DesiredSize.Width + Spacing;
-            h = Math.Max(h, child.DesiredSize.Height);
+            child.Measure(Vert ? new Size(availableSize.Width, double.PositiveInfinity)
+                               : new Size(double.PositiveInfinity, availableSize.Height));
+            if (Vert) { along += child.DesiredSize.Height + Spacing; cross = Math.Max(cross, child.DesiredSize.Width); }
+            else { along += child.DesiredSize.Width + Spacing; cross = Math.Max(cross, child.DesiredSize.Height); }
         }
-        if (InternalChildren.Count > 0) w -= Spacing;
-        return new Size(w, double.IsInfinity(availableSize.Height) ? h : availableSize.Height);
+        if (InternalChildren.Count > 0) along -= Spacing;
+        return Vert
+            ? new Size(double.IsInfinity(availableSize.Width) ? cross : availableSize.Width, along)
+            : new Size(along, double.IsInfinity(availableSize.Height) ? cross : availableSize.Height);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        double x = 0;
+        double pos = 0;
         foreach (UIElement child in InternalChildren)
         {
             double cw = child.DesiredSize.Width;
             double ch = child.DesiredSize.Height;
-            double y = (finalSize.Height - ch) / 2.0;
-            child.Arrange(new Rect(x, y, cw, ch));
-
-            AnimateToSlot(child, x);
-            x += cw + Spacing;
+            if (Vert)
+            {
+                double x = (finalSize.Width - cw) / 2.0;
+                child.Arrange(new Rect(x, pos, cw, ch));
+                AnimateToSlot(child, pos);
+                pos += ch + Spacing;
+            }
+            else
+            {
+                double y = (finalSize.Height - ch) / 2.0;
+                child.Arrange(new Rect(pos, y, cw, ch));
+                AnimateToSlot(child, pos);
+                pos += cw + Spacing;
+            }
         }
         if (DividerBrush != null) InvalidateVisual();
         return finalSize;
@@ -69,39 +89,57 @@ public sealed class AnimatedBarPanel : Panel
         if (DividerBrush == null || InternalChildren.Count < 2) return;
 
         var pen = new Pen(DividerBrush, 1); pen.Freeze();
+        double pos = 0;
+        if (Vert)
+        {
+            double w = RenderSize.Width;
+            double inset = Math.Max(4, w * 0.24);
+            for (int i = 0; i < InternalChildren.Count; i++)
+            {
+                pos += InternalChildren[i].DesiredSize.Height;
+                if (i < InternalChildren.Count - 1)
+                {
+                    double lineY = Math.Round(pos + Spacing / 2.0) + 0.5;
+                    dc.DrawLine(pen, new Point(inset, lineY), new Point(w - inset, lineY));
+                    pos += Spacing;
+                }
+            }
+            return;
+        }
         double h = RenderSize.Height;
-        double inset = Math.Max(4, h * 0.24);
-        double x = 0;
+        double hinset = Math.Max(4, h * 0.24);
         for (int i = 0; i < InternalChildren.Count; i++)
         {
-            x += InternalChildren[i].DesiredSize.Width;
+            pos += InternalChildren[i].DesiredSize.Width;
             if (i < InternalChildren.Count - 1)
             {
-                double lineX = Math.Round(x + Spacing / 2.0) + 0.5;   // crisp 1px line centred in the gap
-                dc.DrawLine(pen, new Point(lineX, inset), new Point(lineX, h - inset));
-                x += Spacing;
+                double lineX = Math.Round(pos + Spacing / 2.0) + 0.5;   // crisp 1px line centred in the gap
+                dc.DrawLine(pen, new Point(lineX, hinset), new Point(lineX, h - hinset));
+                pos += Spacing;
             }
         }
     }
 
-    private void AnimateToSlot(UIElement child, double newX)
+    private void AnimateToSlot(UIElement child, double newPos)
     {
         var tt = EnsureTransform(child);
+        var axis = Vert ? TranslateTransform.YProperty : TranslateTransform.XProperty;
 
         if (!AnimationsEnabled)
         {
             tt.BeginAnimation(TranslateTransform.XProperty, null);
-            tt.X = 0;
-            _lastX[child] = newX;
+            tt.BeginAnimation(TranslateTransform.YProperty, null);
+            tt.X = 0; tt.Y = 0;
+            _lastX[child] = newPos;
             return;
         }
 
-        if (_lastX.TryGetValue(child, out double oldX))
+        if (_lastX.TryGetValue(child, out double oldPos))
         {
-            double delta = oldX - newX;
+            double delta = oldPos - newPos;
             if (Math.Abs(delta) > 0.5 && !ReferenceEquals(child, DragExempt))
             {
-                tt.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation
+                tt.BeginAnimation(axis, new DoubleAnimation
                 {
                     From = delta,
                     To = 0,
@@ -116,7 +154,7 @@ public sealed class AnimatedBarPanel : Panel
             child.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
         }
 
-        _lastX[child] = newX;
+        _lastX[child] = newPos;
     }
 
     private static TranslateTransform EnsureTransform(UIElement child)

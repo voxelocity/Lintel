@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>LintelUpdater</AssemblyName>
+    <RootNamespace>LintelUpdater</RootNamespace>
+    <Version>1.1.0</Version>
+    <!-- Published self-contained + single-file via the command line:
+         dotnet publish Updater/Updater.csproj -c Release -r win-x64
+         /p:PublishSingleFile=true /p:SelfContained=true -->
+  </PropertyGroup>
+
+</Project>

@@ -41,6 +41,8 @@ public sealed class ThemeDef
     public Color? BubbleBorder;     // raised-button outline drawn around each widget
     public double BubbleBorderThickness = 1;
     public double BubbleGloss;      // 0 = none; glossy sheen on each widget bubble
+    public double BubbleVInset;     // extra vertical inset of each bubble inside the bar (Islands: lets the pill stand taller than its content)
+    public bool FlatBubble;         // suppress the subtle bevel sheen — flat fills for the clean themes (Squircles/Power/Mond)
 
     public DropdownChrome Chrome;   // OS-window styling for dropdowns (XP Luna / Vista Aero)
     public bool DropShine;          // glassy bevel highlight around the dropdown (glass OS themes)
@@ -141,7 +143,8 @@ public static class Themes
         FrostedGlass = true,
         BottomHighlight = true,
         FluidDropdowns = fluid,
-        WidgetDividers = dividers
+        WidgetDividers = dividers,
+        FlatBubble = true
     };
 
     private static ThemeDef SquirclesLike(double corner) => new()
@@ -152,18 +155,21 @@ public static class Themes
         Padding = new Thickness(8, 0, 8, 0),
         Spacing = 4,
         IconSaturation = 1.0,
+        FlatBubble = true
     };
 
     private static ThemeDef IslandsDef() => new()
     {
-        BubbleIdle = Color.FromArgb(0x16, 0xFF, 0xFF, 0xFF),
-        BubbleHover = Color.FromArgb(0x2A, 0xFF, 0xFF, 0xFF),
-        CornerRadius = 8,
-        Padding = new Thickness(8, 0, 8, 0),
+        BubbleIdle = Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF),
+        CornerRadius = 9,
+        Padding = new Thickness(9, 0, 9, 0),
         Spacing = 4,
         IconSaturation = 1.0,
         SeparatedZones = true,
         ZoneBackground = Color.FromArgb(0xE6, 0x1C, 0x1C, 0x1E),
+        BarHeight = 48,        // taller bar so the pills can stand tall with air above & below
+        BubbleVInset = 16,     // bubbles sit inset inside the taller pill (interior top/bottom padding)
     };
 
     // Windows XP "Luna Blue": solid glossy blue gradient, bright icons, raised glassy buttons, Tahoma.

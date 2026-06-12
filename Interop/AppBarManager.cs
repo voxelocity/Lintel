@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Lintel.Models;
 using static Lintel.Interop.NativeMethods;
 
 namespace Lintel.Interop;
@@ -17,14 +18,15 @@ internal sealed class AppBarManager
 
     public bool IsRegistered => _registered;
 
-    /// <summary>Reserve a strip of height <paramref name="heightPx"/> at the top (or bottom) of the monitor.</summary>
-    public void Reserve(RECT monitorBounds, int heightPx, bool bottom = false)
+    /// <summary>Reserve the strip described by <paramref name="barRect"/> along the given screen edge.</summary>
+    public void Reserve(RECT barRect, BarEdge edge)
     {
+        uint uEdge = edge switch { BarEdge.Bottom => ABE_BOTTOM, BarEdge.Left => ABE_LEFT, BarEdge.Right => ABE_RIGHT, _ => ABE_TOP };
         var data = new APPBARDATA
         {
             cbSize = Marshal.SizeOf<APPBARDATA>(),
             hWnd = _hwnd,
-            uEdge = bottom ? ABE_BOTTOM : ABE_TOP
+            uEdge = uEdge
         };
 
         if (!_registered)
@@ -33,15 +35,17 @@ internal sealed class AppBarManager
             _registered = true;
         }
 
-        // Propose the rectangle, let the shell adjust it, then commit.
-        data.rc = bottom
-            ? new RECT { Left = monitorBounds.Left, Top = monitorBounds.Bottom - heightPx, Right = monitorBounds.Right, Bottom = monitorBounds.Bottom }
-            : new RECT { Left = monitorBounds.Left, Top = monitorBounds.Top, Right = monitorBounds.Right, Bottom = monitorBounds.Top + heightPx };
-
+        // Propose the rectangle, let the shell adjust it (it stacks us beside the taskbar), then keep our thickness.
+        data.rc = barRect;
+        int w = barRect.Right - barRect.Left, h = barRect.Bottom - barRect.Top;
         SHAppBarMessage(ABM_QUERYPOS, ref data);
-        // Honour the position the shell handed back (it stacks us above the taskbar), keep our height.
-        if (bottom) data.rc.Top = data.rc.Bottom - heightPx;
-        else { data.rc.Top = monitorBounds.Top; data.rc.Bottom = monitorBounds.Top + heightPx; }
+        switch (edge)
+        {
+            case BarEdge.Bottom: data.rc.Top = data.rc.Bottom - h; break;
+            case BarEdge.Top: data.rc.Bottom = data.rc.Top + h; break;
+            case BarEdge.Left: data.rc.Right = data.rc.Left + w; break;
+            case BarEdge.Right: data.rc.Left = data.rc.Right - w; break;
+        }
         SHAppBarMessage(ABM_SETPOS, ref data);
     }
 

@@ -1,6 +1,6 @@
 namespace Lintel.Widgets;
 
-public enum WidgetKind { Gauge, Clock, Date, ActiveApp, Mode, Settings, Note, Windows, Workspaces, Load, Media, Claude, GitHub, Custom, Todo, Pomodoro, Weather, Stocks, Volume, Brightness, TicTacToe }
+public enum WidgetKind { Gauge, Clock, Date, ActiveApp, Mode, Settings, Note, Windows, Workspaces, Load, Media, Claude, GitHub, Custom, Todo, Pomodoro, Weather, Stocks, Volume, Brightness, TicTacToe, Launcher, Start, Tray }
 
 /// <summary>
 /// The JSON-serializable form of a user widget. Drop one of these in
@@ -59,6 +59,9 @@ public static class WidgetCatalog
 
         new("tictactoe",  "Tic-Tac-Toe", WidgetKind.TicTacToe,  "Fun"),
 
+        new("start",      "Start Menu",  WidgetKind.Start,      "Windows"),
+        new("launcher",   "App Launcher",WidgetKind.Launcher,   "Windows"),
+        new("tray",       "System Tray", WidgetKind.Tray,       "Windows"),
         new("activeapp",  "Active App",  WidgetKind.ActiveApp,  "Windows"),
         new("windows",    "App Tabs",    WidgetKind.Windows,    "Windows"),
         new("workspaces", "Workspaces",  WidgetKind.Workspaces, "Windows"),

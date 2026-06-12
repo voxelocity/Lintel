@@ -37,16 +37,17 @@ internal static class ForegroundProbe
 
         if (sameMonitor)
         {
+            bool shell = IsShellWindow(hwnd);   // class-name lookup once, not per check
+
             // Fullscreen: the window covers (or exceeds) the entire monitor.
-            fullscreen =
+            fullscreen = !shell &&
                 rect.Left <= monitorBounds.Left &&
                 rect.Top <= monitorBounds.Top &&
                 rect.Right >= monitorBounds.Right &&
-                rect.Bottom >= monitorBounds.Bottom &&
-                !IsShellWindow(hwnd);
+                rect.Bottom >= monitorBounds.Bottom;
 
             // Overlap: any part of the window pushes up into the bar's strip.
-            overlaps = Intersects(rect, barRectDevice) && !IsShellWindow(hwnd);
+            overlaps = !shell && Intersects(rect, barRectDevice);
         }
 
         return new ForegroundState(GetAppName(hwnd), fullscreen, overlaps);

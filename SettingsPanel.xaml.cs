@@ -106,7 +106,7 @@ public partial class SettingsPanel : UserControl
     {
         var on = new SolidColorBrush(Color.FromRgb(0x0A, 0x84, 0xFF));
         var dim = new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xD5));
-        Button[] b = { PosTop, PosBottom };
+        Button[] b = { PosTop, PosBottom, PosLeft, PosRight };
         for (int i = 0; i < b.Length; i++) { b[i].Background = _selPos == i ? on : Brushes.Transparent; b[i].Foreground = _selPos == i ? Brushes.White : dim; }
     }
 

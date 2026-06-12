@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using Lintel.Controls;
 using Lintel.Models;
@@ -47,13 +48,15 @@ public sealed class WidgetView : Border
         _preview = preview;
 
         var theme = Themes.Resolve(host.Settings);
-        _idleBg = Frozen(theme.BubbleIdle);
-        _hoverBg = Frozen(theme.BubbleHover);
+        // Tactile bevel: a faint top-to-bottom sheen so each bubble reads as a raised key. The clean
+        // themes (Squircles/Power/Mond) opt out via FlatBubble and keep flat fills.
+        _idleBg = theme.FlatBubble ? Frozen(theme.BubbleIdle) : Bevel(theme.BubbleIdle);
+        _hoverBg = theme.FlatBubble ? Frozen(theme.BubbleHover) : Bevel(theme.BubbleHover);
         _iconSat = theme.IconSaturation;
         _fgColor = ParseColor(host.Settings.ForegroundColor, Colors.White);
 
         CornerRadius = new CornerRadius(theme.CornerRadius);
-        Height = Math.Max(20, host.BarHeight - 8);   // uniform bubble height (theme may resize the bar)
+        Height = Math.Max(18, host.BarHeight - 8 - theme.BubbleVInset);   // uniform bubble height (theme may resize the bar / inset the bubble)
         Padding = theme.Padding;
         Background = _idleBg;
         _bubbleBorder = theme.BubbleBorder;
@@ -64,6 +67,11 @@ public sealed class WidgetView : Border
             BorderBrush = Frozen(bb);
             BorderThickness = new Thickness(_bubbleBorderThickness);
         }
+        // Soft contact shadow gives the clean themes a gentle sense of depth (skipped where the theme
+        // already provides its own depth: separated pills / heavy gloss OS themes). One shared frozen
+        // effect is reused across every bubble instead of allocating one per widget.
+        if (!_preview && !theme.SeparatedZones && _bubbleGloss <= 0.001)
+            Effect = BubbleShadow;
         SnapsToDevicePixels = true;
         VerticalAlignment = VerticalAlignment.Center;
         Cursor = Cursors.Arrow;
@@ -100,13 +108,16 @@ public sealed class WidgetView : Border
         WidgetKind.Claude => BuildStatWidget("claude", Color.FromRgb(0xD9, 0x77, 0x57), "—"),
         WidgetKind.GitHub => BuildStatWidget("github", Color.FromRgb(0xE6, 0xE6, 0xEA), "—"),
         WidgetKind.Custom => BuildCustom(),
-        WidgetKind.Volume => BuildStatWidget("volume", Color.FromRgb(0xCF, 0xD2, 0xDA), _preview ? "60%" : "•"),
-        WidgetKind.Brightness => BuildStatWidget("brightness", Color.FromRgb(0xFF, 0xC8, 0x3C), _preview ? "80%" : "•"),
+        WidgetKind.Volume => BuildSlider("volume", Color.FromRgb(0xDE, 0xE2, 0xEA), Accent, isVolume: true),
+        WidgetKind.Brightness => BuildSlider("brightness", Color.FromRgb(0xFF, 0xC8, 0x3C), Color.FromRgb(0xFF, 0xB0, 0x22), isVolume: false),
         WidgetKind.Weather => BuildStatWidget("weather", Color.FromRgb(0x5C, 0xB4, 0xF0), _preview ? "18°C" : "—"),
         WidgetKind.Stocks => BuildStatWidget("stocks", Color.FromRgb(0x39, 0xD3, 0x53), _preview ? "BTC 67k" : "—"),
         WidgetKind.Todo => BuildStatWidget("todo", Accent, _preview ? "3" : "0"),
         WidgetKind.Pomodoro => BuildStatWidget("pomodoro", Color.FromRgb(0xE0, 0x53, 0x3C), _preview ? "25:00" : "25:00"),
         WidgetKind.TicTacToe => BuildStatWidget("tictactoe", Color.FromRgb(0xE6, 0xE6, 0xEA), ""),
+        WidgetKind.Launcher => BuildIconWidget("launcher", 17),
+        WidgetKind.Start => BuildIconWidget("start", 15, Color.FromRgb(0x36, 0x9E, 0xFF)),
+        WidgetKind.Tray => BuildTray(),
         _ => BuildText(out _dynamicText, false)
     };
 
@@ -176,10 +187,57 @@ public sealed class WidgetView : Border
         return WrapWithBadge(row);
     }
 
-    private UIElement BuildIconWidget(string key, double size)
+    private UIElement BuildIconWidget(string key, double size, Color? tint = null)
     {
-        var icon = IconPath(key, _fgColor, size);
+        var icon = IconPath(key, tint is Color c ? IconColor(c) : _fgColor, size);
         return WrapWithBadge(icon);
+    }
+
+    // System tray: the real notification-area icons, rendered inline, with a chevron to open the rest.
+    private StackPanel? _trayHost;
+    private string _traySig = "";
+
+    private UIElement BuildTray()
+    {
+        _trayHost = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        RefreshTray(force: true);
+        return WrapWithBadge(_trayHost);
+    }
+
+    private void RefreshTray(bool force = false)
+    {
+        if (_trayHost == null) return;
+        var icons = _preview ? new List<Services.TrayItem>() : Services.SystemTray.Items();
+        string sig = string.Join("|", icons.Select(i => i.Title));
+        if (!force && sig == _traySig) return;
+        _traySig = sig;
+
+        _trayHost.Children.Clear();
+        double sz = Math.Max(14, Math.Min(18, Height - 6));
+        foreach (var item in icons.Take(10))
+        {
+            var img = new System.Windows.Controls.Image
+            {
+                Source = item.Icon, Width = sz, Height = sz, Margin = new Thickness(2, 0, 2, 0),
+                VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand,
+                ToolTip = string.IsNullOrWhiteSpace(item.Title) ? null : item.Title,
+                SnapsToDevicePixels = true
+            };
+            var captured = item;
+            img.MouseLeftButtonUp += (_, e) => { if (_host.Customizing) return; e.Handled = true; captured.Invoke(false); };
+            img.MouseRightButtonUp += (_, e) => { if (_host.Customizing) return; e.Handled = true; captured.Invoke(true); };
+            _trayHost.Children.Add(img);
+        }
+        // Chevron → open the rest / the real overflow.
+        var chev = IconPath("tray", _fgColor, 12);
+        chev.Margin = new Thickness(3, 0, 1, 0); chev.Opacity = 0.75; chev.Cursor = Cursors.Hand;
+        chev.MouseLeftButtonUp += (_, e) => { if (_host.Customizing) return; e.Handled = true; _host.ShowTray(this); };
+        _trayHost.Children.Add(chev);
+        if (icons.Count == 0)
+        {
+            var label = new TextBlock { Text = "Tray", FontSize = 12, Foreground = Foreground, Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 0, 0) };
+            _trayHost.Children.Insert(0, label);
+        }
     }
 
     // ---- interactive widgets ----
@@ -254,6 +312,26 @@ public sealed class WidgetView : Border
 
     /// <summary>Set the compact label on a Claude/GitHub widget.</summary>
     public void SetStat(string text) { if (_statText != null) _statText.Text = text; }
+
+    // ---- inline physical sliders (volume / brightness) ----
+
+    private TactileSlider? _slider;
+
+    private UIElement BuildSlider(string iconKey, Color iconTint, Color fillAccent, bool isVolume)
+    {
+        var icon = IconPath(iconKey, IconColor(iconTint), 16);
+        _slider = new TactileSlider(icon, fillAccent);
+        int initial = _preview ? (isVolume ? 60 : 80)
+                    : Math.Max(0, isVolume ? Services.SystemVolume.Level() : Services.Brightness.Level());
+        _slider.SetValue(initial);
+
+        if (!_preview)
+        {
+            if (isVolume) _slider.ValueChanged += v => Services.SystemVolume.SetLevel(v);     // cheap → live
+            else _slider.ValueCommitted += v => Services.Brightness.SetLevel(v);              // WMI is slow → on release
+        }
+        return WrapWithBadge(_slider);
+    }
 
     // ---- custom (user-defined) widgets ----
 
@@ -470,9 +548,12 @@ public sealed class WidgetView : Border
 
     // ---- remove badge (top-right corner) ----
 
+    private Grid? _contentRoot;
+
     private UIElement WrapWithBadge(UIElement content)
     {
-        var grid = new Grid { VerticalAlignment = VerticalAlignment.Center };
+        var grid = new Grid { VerticalAlignment = VerticalAlignment.Center, RenderTransformOrigin = new Point(0.5, 0.5) };
+        _contentRoot = grid;
 
         // Glossy sheen across the top of the bubble (XP / Aero themes), behind the content.
         if (_bubbleGloss > 0)
@@ -520,9 +601,12 @@ public sealed class WidgetView : Border
             case WidgetKind.Media: UpdateMedia(); break;
             case WidgetKind.Mode: UpdateModeText(); break;
             case WidgetKind.Workspaces: RefreshWorkspace(); break;
+            case WidgetKind.Tray: RefreshTray(); break;
             case WidgetKind.Custom: RefreshCustom(); break;
             case WidgetKind.Volume:
             case WidgetKind.Brightness:
+                if (!_preview && _slider != null) { int lv = _host.WidgetLevel(this); if (lv >= 0) _slider.SetValue(lv); }
+                break;
             case WidgetKind.Weather:
             case WidgetKind.Stocks:
             case WidgetKind.Todo:
@@ -609,16 +693,47 @@ public sealed class WidgetView : Border
     private void OnMouseLeave(object sender, MouseEventArgs e)
     {
         Background = _idleBg;
+        PressUp();
         if (_host.HasDropdown(this)) _host.WidgetHoverLeft(this);
     }
 
     private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (!_host.Customizing) return;
+        if (!_host.Customizing) { PressDown(); return; }
         // Don't start a drag when the click is on the remove (x) badge — let it delete.
         if (_removeBadge != null && e.OriginalSource is DependencyObject src && IsWithin(src, _removeBadge)) return;
         _host.BeginWidgetDrag(this, e);
         e.Handled = true;
+    }
+
+    // ---- tactile press feedback (scale the content slightly on tap) ----
+
+    private ScaleTransform? _pressScale;
+
+    // Widgets whose own surface is the click target (not internal sliders / tab strips).
+    private bool TapWidget => Descriptor.Kind is not (WidgetKind.Volume or WidgetKind.Brightness
+        or WidgetKind.Tray or WidgetKind.Windows or WidgetKind.Workspaces);
+
+    private void PressDown()
+    {
+        if (!TapWidget || _contentRoot == null || _preview) return;
+        _pressScale ??= new ScaleTransform(1, 1);
+        _contentRoot.RenderTransform = _pressScale;
+        PressAnim(0.92);
+    }
+
+    private void PressUp()
+    {
+        if (_pressScale == null) return;
+        PressAnim(1.0);
+    }
+
+    private void PressAnim(double to)
+    {
+        if (_pressScale == null) return;
+        var a = new DoubleAnimation(to, TimeSpan.FromMilliseconds(to < 1 ? 70 : 120)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+        _pressScale.BeginAnimation(ScaleTransform.ScaleXProperty, a);
+        _pressScale.BeginAnimation(ScaleTransform.ScaleYProperty, a);
     }
 
     private static bool IsWithin(DependencyObject? node, DependencyObject ancestor)
@@ -633,6 +748,7 @@ public sealed class WidgetView : Border
 
     private void OnMouseUp(object sender, MouseButtonEventArgs e)
     {
+        PressUp();
         if (_host.Customizing) return;
         switch (Descriptor.Kind)
         {
@@ -644,8 +760,6 @@ public sealed class WidgetView : Border
             case WidgetKind.Media:
             case WidgetKind.Claude:
             case WidgetKind.GitHub:
-            case WidgetKind.Volume:
-            case WidgetKind.Brightness:
             case WidgetKind.Weather:
             case WidgetKind.Stocks:
             case WidgetKind.Todo:
@@ -656,6 +770,9 @@ public sealed class WidgetView : Border
             case WidgetKind.Custom:
                 if (!string.IsNullOrWhiteSpace(_custSpec?.OnClick)) OpenTarget(_custSpec!.OnClick);
                 break;
+            case WidgetKind.Launcher: _host.ShowLauncher(this); break;
+            case WidgetKind.Start: _host.OpenStartMenu(); break;
+            case WidgetKind.Tray: _host.ShowTray(this); break;
         }
     }
 
@@ -667,7 +784,31 @@ public sealed class WidgetView : Border
         catch { /* ignore bad targets */ }
     }
 
+    // Shared, frozen contact shadow — created once, reused by every bubble that opts in.
+    private static readonly System.Windows.Media.Effects.DropShadowEffect BubbleShadow = FreezeShadow();
+    private static System.Windows.Media.Effects.DropShadowEffect FreezeShadow()
+    {
+        var e = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 5, ShadowDepth = 1, Direction = 270, Opacity = 0.28, Color = Colors.Black };
+        e.Freeze();
+        return e;
+    }
+
     private static Brush Frozen(Color c) { var b = new SolidColorBrush(c); b.Freeze(); return b; }
+
+    /// <summary>A subtle vertical sheen built from a base bubble colour — brighter at the top, a touch
+    /// deeper at the bottom — for a raised, tactile feel without leaving the clean aesthetic.</summary>
+    private static Brush Bevel(Color c)
+    {
+        byte Up(int d) => (byte)Math.Clamp(c.A + d, 0, 255);
+        var top = Color.FromArgb(Up(0x12), c.R, c.G, c.B);
+        var bot = Color.FromArgb(Up(-0x05), c.R, c.G, c.B);
+        var b = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+        b.GradientStops.Add(new GradientStop(top, 0));
+        b.GradientStops.Add(new GradientStop(c, 0.55));
+        b.GradientStops.Add(new GradientStop(bot, 1));
+        b.Freeze();
+        return b;
+    }
     private static Brush ParseBrush(string hex, Brush fallback) { try { var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); b.Freeze(); return b; } catch { return fallback; } }
     private static Color ParseColor(string hex, Color fallback) { try { return (Color)ColorConverter.ConvertFromString(hex); } catch { return fallback; } }
 }

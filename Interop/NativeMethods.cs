@@ -51,7 +51,9 @@ internal static class NativeMethods
     public const uint ABM_SETPOS = 0x00000003;
     public const uint ABM_GETSTATE = 0x00000004;
 
+    public const uint ABE_LEFT = 0;
     public const uint ABE_TOP = 1;
+    public const uint ABE_RIGHT = 2;
     public const uint ABE_BOTTOM = 3;
 
     [DllImport("shell32.dll", CallingConvention = CallingConvention.StdCall)]

@@ -123,9 +123,11 @@
 
                 <TextBlock Text="POSITION" Style="{StaticResource Section}"/>
                 <Border Background="#FF2C2C30" CornerRadius="9" Padding="3">
-                    <UniformGrid Rows="1" Columns="2">
+                    <UniformGrid Rows="1" Columns="4">
                         <Button x:Name="PosTop"    Style="{StaticResource Seg}" Click="Pos_Click" Tag="0" Content="Top"/>
                         <Button x:Name="PosBottom" Style="{StaticResource Seg}" Click="Pos_Click" Tag="1" Content="Bottom"/>
+                        <Button x:Name="PosLeft"   Style="{StaticResource Seg}" Click="Pos_Click" Tag="2" Content="Left"/>
+                        <Button x:Name="PosRight"  Style="{StaticResource Seg}" Click="Pos_Click" Tag="3" Content="Right"/>
                     </UniformGrid>
                 </Border>
 
