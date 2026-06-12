@@ -172,6 +172,30 @@ public static class Themes
         BubbleVInset = 16,     // bubbles sit inset inside the taller pill (interior top/bottom padding)
     };
 
+    // Liquid Glass: bright, clear macOS-style frosted glass with a specular sheen, a crisp rim light,
+    // and rounded glassy keys. Live-blurs the desktop behind the bar.
+    private static ThemeDef LiquidGlass() => new()
+    {
+        BubbleIdle = Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF),
+        BubbleHover = Color.FromArgb(0x42, 0xFF, 0xFF, 0xFF),
+        CornerRadius = 13,
+        Padding = new Thickness(11, 0, 11, 0),
+        Spacing = 5,
+        IconSaturation = 1.0,
+        Acrylic = true,
+        AeroBlur = true,            // clearer (less milky) blur, like glass
+        FrostedGlass = true,
+        AcrylicTint = Color.FromArgb(0x4C, 0x1E, 0x24, 0x30),   // clear cool graphite — desktop blurs through, white text stays legible
+        BarHeight = 36,
+        GlossStrength = 0.24,                                    // specular sheen across the top
+        TopEdge = Color.FromArgb(0xA6, 0xFF, 0xFF, 0xFF),       // bright rim light along the top edge
+        BottomEdge = Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF),
+        FontFamily = "Segoe UI Variable",
+        BubbleBorder = Color.FromArgb(0x3E, 0xFF, 0xFF, 0xFF),  // glassy key outline
+        BubbleGloss = 0.30,
+        DropShine = true,           // liquid-glass bevel highlight on dropdowns
+    };
+
     // Windows XP "Luna Blue": solid glossy blue gradient, bright icons, raised glassy buttons, Tahoma.
     private static ThemeDef WinXP() => new()
     {
@@ -248,6 +272,7 @@ public static class Themes
         new(StringComparer.OrdinalIgnoreCase)
         {
             ["Squircles"]     = SquirclesLike,
+            ["Liquid Glass"]  = _ => LiquidGlass(),
             ["Power"]         = _ => PowerLike(false),
             ["Islands"]       = _ => IslandsDef(),
             ["Mond"]          = _ => PowerLike(false, dividers: true),
@@ -259,7 +284,7 @@ public static class Themes
 
     /// <summary>Built-in themes shown in the picker, in order.</summary>
     public static readonly string[] BuiltInOrder =
-        { "Squircles", "Power", "Islands", "Mond", "Windows XP", "Windows Vista", "Windows 7" };
+        { "Squircles", "Liquid Glass", "Power", "Islands", "Mond", "Windows XP", "Windows Vista", "Windows 7" };
 
     private static Dictionary<string, ThemeSpec> _custom = new(StringComparer.OrdinalIgnoreCase);
 

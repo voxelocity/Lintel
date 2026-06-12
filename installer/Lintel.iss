@@ -2,7 +2,7 @@
 ; Compile with:  "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" installer\Lintel.iss
 
 #define MyAppName "Lintel"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "voxelocity"
 #define MyAppURL "https://github.com/voxelocity/Lintel"
 #define MyAppExeName "Lintel.exe"

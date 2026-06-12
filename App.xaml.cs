@@ -63,12 +63,29 @@ public partial class App : Application
         AddModeItem(visibility, "Always On", VisibilityMode.AlwaysOn);
         AddModeItem(visibility, "Auto-Hide", VisibilityMode.AutoHide);
         AddModeItem(visibility, "Dynamic", VisibilityMode.Dynamic);
+        AddModeItem(visibility, "Island", VisibilityMode.Island);
         visibility.DropDownOpening += (_, _) =>
         {
             foreach (WinForms.ToolStripMenuItem item in visibility.DropDownItems)
                 item.Checked = (VisibilityMode)item.Tag! == _settings!.Mode;
         };
         menu.Items.Add(visibility);
+
+        var theme = new WinForms.ToolStripMenuItem("Theme");
+        foreach (var name in Lintel.Widgets.Themes.Names())
+        {
+            var captured = name;
+            theme.DropDownItems.Add(new WinForms.ToolStripMenuItem(Lintel.Widgets.Themes.DisplayName(name)) { Tag = captured });
+        }
+        foreach (WinForms.ToolStripMenuItem item in theme.DropDownItems)
+            item.Click += (_, _) => _bar?.ChangeTheme((string)item.Tag!);
+        theme.DropDownOpening += (_, _) =>
+        {
+            var cur = Lintel.Widgets.Themes.NameOf(_settings!);
+            foreach (WinForms.ToolStripMenuItem item in theme.DropDownItems)
+                item.Checked = (string)item.Tag! == cur;
+        };
+        menu.Items.Add(theme);
 
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Check for Updates…", null, (_, _) => CheckForUpdates());

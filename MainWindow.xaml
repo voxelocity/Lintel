@@ -72,6 +72,7 @@
             </Border.RenderTransform>
 
             <Grid>
+              <Grid x:Name="BarContent">
                 <!-- Frosted glass: the blurred live strip behind the bar. Slightly overscanned so the
                      blur's soft edges fall outside the bar (clipped) instead of leaving a sharp sliver. -->
                 <Image x:Name="FrostImage" Stretch="Fill" IsHitTestVisible="False" Visibility="Collapsed"
@@ -102,6 +103,23 @@
                 <!-- Bright top-edge hairline (Aero / Luna themes) -->
                 <Border x:Name="TopEdgeLine" Height="1" VerticalAlignment="Top"
                         Visibility="Collapsed" IsHitTestVisible="False"/>
+              </Grid>
+
+              <!-- Island mode: a compact always-on-top pill that expands to the full bar on hover. -->
+              <Border x:Name="IslandPill" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      CornerRadius="13" Height="26" Padding="14,0" Background="#F00A0A0C"
+                      RenderTransformOrigin="0.5,0.5">
+                  <Border.Effect>
+                      <DropShadowEffect BlurRadius="14" ShadowDepth="2" Direction="270" Opacity="0.55" Color="Black"/>
+                  </Border.Effect>
+                  <Border.RenderTransform>
+                      <ScaleTransform x:Name="IslandScale" ScaleX="1" ScaleY="1"/>
+                  </Border.RenderTransform>
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                      <Ellipse x:Name="IslandDot" Width="7" Height="7" Margin="0,0,8,0" Fill="#30D158"/>
+                      <TextBlock x:Name="IslandClock" Foreground="White" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                  </StackPanel>
+              </Border>
             </Grid>
         </Border>
 

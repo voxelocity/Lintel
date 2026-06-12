@@ -12,7 +12,7 @@
     <ApplicationIcon>assets\lintel.ico</ApplicationIcon>
     <AssemblyName>Lintel</AssemblyName>
     <RootNamespace>Lintel</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>Lintel</Authors>
     <Product>Lintel</Product>
     <!-- WPF reads DPI awareness from app.manifest; the WinForms toolchain warns about it regardless. -->

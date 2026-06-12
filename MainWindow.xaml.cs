@@ -76,7 +76,7 @@ public partial class MainWindow : Window, IWidgetHost
         _tick.Tick += OnTick;
 
         _clock = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
-        _clock.Tick += (_, _) => RefreshDynamicWidgets();
+        _clock.Tick += (_, _) => { RefreshDynamicWidgets(); if (_settings.Mode == VisibilityMode.Island && !_islandExpanded) UpdateIslandClock(); };
 
         _overlayHideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
         _overlayHideTimer.Tick += (_, _) => { _overlayHideTimer.Stop(); if (_overlayHover) CloseOverlay(); };
@@ -205,6 +205,7 @@ public partial class MainWindow : Window, IWidgetHost
     private double _barThickness = 156;           // width of a vertical side bar, in DIP
     private RECT _workArea;                       // monitor work area (excludes the OS taskbar)
     private RECT _barDevRect;                     // the bar's on-screen rectangle, in device pixels
+    private bool _islandExpanded;                 // Island mode: showing the full bar (true) vs the pill (false)
     private int _barTopPx;                        // bar's top edge in device pixels (top/bottom bars)
     // How far (and on which axis) the bar slides to hide.
     private bool SlideAxisX => _barVertical;
@@ -556,15 +557,31 @@ public partial class MainWindow : Window, IWidgetHost
         _hotSince = null;
         _hideAt = null;
 
-        if (_settings.Mode == VisibilityMode.AlwaysOn)
+        if (_settings.Mode == VisibilityMode.Island)
         {
-            _appBar?.Reserve(_barDevRect, _settings.BarPosition);
-            SetShown(true, animate: !initial);
+            _appBar?.Release();
+            // The bar window stays put and visible; we morph between the pill and the full bar.
+            SlideTransform.X = 0; SlideTransform.Y = 0;
+            UpdateIslandClock();
+            ApplyIslandState(_forceOpen || Customizing, animate: false);
         }
         else
         {
-            _appBar?.Release();
-            SetShown(_settings.Mode == VisibilityMode.Dynamic, animate: false);
+            // Leaving island mode: restore the full-bar visuals.
+            IslandPill.Visibility = Visibility.Collapsed;
+            BarContent.Visibility = Visibility.Visible;
+            BarRoot.SetCurrentValue(System.Windows.Controls.Border.BackgroundProperty, BarBackground);
+
+            if (_settings.Mode == VisibilityMode.AlwaysOn)
+            {
+                _appBar?.Reserve(_barDevRect, _settings.BarPosition);
+                SetShown(true, animate: !initial);
+            }
+            else
+            {
+                _appBar?.Release();
+                SetShown(_settings.Mode == VisibilityMode.Dynamic, animate: false);
+            }
         }
         RefreshDynamicWidgets();
     }
@@ -682,6 +699,16 @@ public partial class MainWindow : Window, IWidgetHost
         }
         else fg = _lastFg;
 
+        // Island mode: always visible & topmost; toggle between the pill and the full bar on hover.
+        if (_settings.Mode == VisibilityMode.Island)
+        {
+            if (_tickCount % 12 == 0) ReassertTopmost();
+            bool expand = EvaluateIsland(now) || _forceOpen || Customizing;
+            if (expand != _islandExpanded && !_animating)
+                ApplyIslandState(expand, animate: true);
+            return;
+        }
+
         bool wantShow;
         switch (_settings.Mode)
         {
@@ -725,6 +752,83 @@ public partial class MainWindow : Window, IWidgetHost
 
     private bool OverBar(POINT p) =>
         p.X >= _barDevRect.Left && p.X < _barDevRect.Right && p.Y >= _barDevRect.Top && p.Y < _barDevRect.Bottom;
+
+    // ---- Island mode (pill ⇄ full bar) ----
+
+    /// <summary>The pill's hover target rectangle in device pixels (with a little slack), or null if not laid out.</summary>
+    private RECT? IslandPillRect()
+    {
+        if (IslandPill.ActualWidth < 1 || _hwnd == IntPtr.Zero) return null;
+        try
+        {
+            var p0 = IslandPill.TransformToAncestor(this).Transform(new Point(0, 0));   // DIP, relative to window
+            int left = _barDevRect.Left + (int)Math.Round(p0.X * _scaleX);
+            int top = _barDevRect.Top + (int)Math.Round(p0.Y * _scaleY);
+            int w = (int)Math.Round(IslandPill.ActualWidth * _scaleX);
+            int h = (int)Math.Round(IslandPill.ActualHeight * _scaleY);
+            int pad = (int)Math.Round(6 * _scaleY);                                     // a little forgiveness around the pill
+            return new RECT { Left = left - pad, Top = top - pad, Right = left + w + pad, Bottom = top + h + pad };
+        }
+        catch { return null; }
+    }
+
+    private bool EvaluateIsland(DateTime now)
+    {
+        if (!GetCursorPos(out var p)) return _islandExpanded;
+
+        // When expanded, keep it open while the cursor is anywhere over the bar; when collapsed,
+        // expand once the cursor settles on the pill.
+        if (_islandExpanded)
+        {
+            if (OverBar(p)) { _hideAt = null; return true; }
+            _hideAt ??= now.AddMilliseconds(_settings.HideDelayMs);
+            return now < _hideAt;
+        }
+
+        var pill = IslandPillRect();
+        bool overPill = pill is RECT r && p.X >= r.Left && p.X < r.Right && p.Y >= r.Top && p.Y < r.Bottom;
+        if (overPill) _hotSince ??= now;
+        else _hotSince = null;
+        if (_hotSince != null && (now - _hotSince.Value).TotalMilliseconds >= _settings.RevealHoldMs)
+        {
+            _hideAt = null;
+            return true;
+        }
+        return false;
+    }
+
+    private void ApplyIslandState(bool expanded, bool animate)
+    {
+        _islandExpanded = expanded;
+        _shown = expanded;                       // so the blur loop / backdrop treat "expanded" as visible
+        SetClickThrough(!expanded);
+        if (_backdrop) ApplyBackdrop(expanded);
+        if (_blurTimer != null) { if (expanded) { _blurTimer.Start(); CaptureBlurFrame(); } else _blurTimer.Stop(); }
+
+        BarContent.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        IslandPill.Visibility = expanded ? Visibility.Collapsed : Visibility.Visible;
+        BarRoot.SetCurrentValue(System.Windows.Controls.Border.BackgroundProperty, expanded ? BarBackground : (Brush)Brushes.Transparent);
+
+        if (!expanded) UpdateIslandClock();
+
+        int ms = (animate && !_potato) ? Math.Max(120, _settings.AnimationMs) : 0;
+        if (ms <= 0) return;
+
+        // A small pop on whichever element is appearing.
+        var target = expanded ? (FrameworkElement)BarContent : IslandPill;
+        target.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(ms)));
+        if (!expanded)
+        {
+            var pop = new DoubleAnimation(0.6, 1, TimeSpan.FromMilliseconds(ms)) { EasingFunction = new BackEase { Amplitude = 0.4, EasingMode = EasingMode.EaseOut } };
+            IslandScale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+            IslandScale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+        }
+    }
+
+    private void UpdateIslandClock()
+    {
+        IslandClock.Text = DateTime.Now.ToString(_settings.Use24HourClock ? "HH:mm" : "h:mm", System.Globalization.CultureInfo.CurrentCulture);
+    }
 
     private bool EvaluateAutoHide(DateTime now)
     {

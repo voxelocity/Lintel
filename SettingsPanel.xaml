@@ -114,10 +114,11 @@
 
                 <TextBlock Text="VISIBILITY MODE" Style="{StaticResource Section}" Margin="0,12,0,6"/>
                 <Border Background="#FF2C2C30" CornerRadius="9" Padding="3">
-                    <UniformGrid Rows="1" Columns="3">
+                    <UniformGrid Rows="1" Columns="4">
                         <Button x:Name="QModeAlways"  Style="{StaticResource Seg}" Click="QMode_Click" Tag="0" Content="Always On"/>
                         <Button x:Name="QModeAuto"    Style="{StaticResource Seg}" Click="QMode_Click" Tag="1" Content="Auto-Hide"/>
                         <Button x:Name="QModeDynamic" Style="{StaticResource Seg}" Click="QMode_Click" Tag="2" Content="Dynamic"/>
+                        <Button x:Name="QModeIsland"  Style="{StaticResource Seg}" Click="QMode_Click" Tag="3" Content="Island"/>
                     </UniformGrid>
                 </Border>
 
@@ -187,10 +188,11 @@
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="VISIBILITY MODE" Style="{StaticResource Section}" Margin="0,6,0,6"/>
                         <Border Background="#FF2C2C30" CornerRadius="9" Padding="3">
-                            <UniformGrid Rows="1" Columns="3">
+                            <UniformGrid Rows="1" Columns="4">
                                 <Button x:Name="ModeAlways"  Style="{StaticResource Seg}" Click="Mode_Click" Tag="0" Content="Always On"/>
                                 <Button x:Name="ModeAuto"    Style="{StaticResource Seg}" Click="Mode_Click" Tag="1" Content="Auto-Hide"/>
                                 <Button x:Name="ModeDynamic" Style="{StaticResource Seg}" Click="Mode_Click" Tag="2" Content="Dynamic"/>
+                                <Button x:Name="ModeIsland"  Style="{StaticResource Seg}" Click="Mode_Click" Tag="3" Content="Island"/>
                             </UniformGrid>
                         </Border>
                         <TextBlock x:Name="ModeHint" Style="{StaticResource Hint}" Margin="2,6,0,0"/>

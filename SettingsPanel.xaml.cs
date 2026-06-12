@@ -42,7 +42,8 @@ public partial class SettingsPanel : UserControl
     {
         "Always visible; reserves desktop space so windows sit below it.",
         "Hidden until you push the cursor to the very top of the screen.",
-        "Floats on top, hides under fullscreen or overlapping windows."
+        "Floats on top, hides under fullscreen or overlapping windows.",
+        "Always-on-top mini pill that expands to the full bar when you hover it."
     };
 
     // ---- load / write ----
@@ -176,9 +177,9 @@ public partial class SettingsPanel : UserControl
     {
         var on = new SolidColorBrush(Color.FromRgb(0x0A, 0x84, 0xFF));
         var dim = new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xD5));
-        Button[] quick = { QModeAlways, QModeAuto, QModeDynamic };
-        Button[] adv = { ModeAlways, ModeAuto, ModeDynamic };
-        for (int i = 0; i < 3; i++)
+        Button[] quick = { QModeAlways, QModeAuto, QModeDynamic, QModeIsland };
+        Button[] adv = { ModeAlways, ModeAuto, ModeDynamic, ModeIsland };
+        for (int i = 0; i < quick.Length; i++)
         {
             bool sel = _selMode == i;
             quick[i].Background = sel ? on : Brushes.Transparent;
@@ -186,7 +187,7 @@ public partial class SettingsPanel : UserControl
             quick[i].Foreground = sel ? Brushes.White : dim;
             adv[i].Foreground = sel ? Brushes.White : dim;
         }
-        ModeHint.Text = ModeHints[Math.Clamp(_selMode, 0, 2)];
+        ModeHint.Text = ModeHints[Math.Clamp(_selMode, 0, ModeHints.Length - 1)];
     }
 
     private void Theme_Click(object sender, RoutedEventArgs e)

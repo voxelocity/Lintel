@@ -37,7 +37,10 @@ public enum VisibilityMode
     AutoHide,
 
     /// <summary>Bar floats on top, but hides itself whenever a window is fullscreen or would sit under it.</summary>
-    Dynamic
+    Dynamic,
+
+    /// <summary>Bar collapses to a small always-on-top "dynamic island" pill that expands to the full bar on hover.</summary>
+    Island
 }
 
 /// <summary>
