@@ -6,7 +6,10 @@
 
 A macOS / Linux-style **top bar for Windows 11** with a fluid, Dynamic Island-style widget system. Lightweight native WPF (.NET 8) — no Electron, tiny runtime footprint. Spans the full width of your screen and holds widgets that animate, reflow, and grow menus straight out of the bar.
 
-### [⬇️ Download the installer](https://github.com/voxelocity/Lintel/raw/main/installer/LintelSetup.exe)
+### [⬇️ Download Lintel](https://github.com/voxelocity/Lintel/releases/latest/download/Lintel.zip)
+### [⬆️ Download the updater](https://github.com/voxelocity/Lintel/releases/latest/download/LintelUpdater.zip)
+
+<sub>Unsigned indie app — your browser or Windows may warn. It's a false positive: in Chrome choose **Keep**, and on any SmartScreen prompt click **More info → Run anyway**. Downloads are zipped so the browser doesn't block them as executables.</sub>
 
 🔊 **[Listen to the Lintel ad](docs/lintelad.wav)**
 
@@ -16,9 +19,11 @@ A macOS / Linux-style **top bar for Windows 11** with a fluid, Dynamic Island-st
 
 ## Install
 
-**[Download `LintelSetup.exe`](https://github.com/voxelocity/Lintel/raw/main/installer/LintelSetup.exe)** and run it — a standard setup wizard installs Lintel per-user (**no administrator rights needed**), adds a Start Menu entry and an optional desktop shortcut, and registers an entry in *Apps & features* so you can uninstall cleanly. Lintel launches right after install; enable **Launch at Windows startup** from Settings if you want it on every login.
+**[Download `Lintel.zip`](https://github.com/voxelocity/Lintel/releases/latest/download/Lintel.zip)**, unzip it, and run **`Lintel.exe`** — it's fully portable, no setup wizard, **no administrator rights**. Lintel launches straight away; enable **Launch at Windows startup** from Settings if you want it on every login. To move to a newer release later, grab **[`LintelUpdater.zip`](https://github.com/voxelocity/Lintel/releases/latest/download/LintelUpdater.zip)** (or use the tray menu → **Check for Updates…**).
 
 > Self-contained — the .NET 8 runtime is bundled, so nothing else needs to be installed.
+
+> **Heads-up on the “virus” warning:** Lintel isn't code-signed (signing certificates are expensive for a free indie app), so Chrome's Safe Browsing and Windows SmartScreen sometimes flag the unsigned `.exe` as suspicious. It's a **false positive**. The downloads are zipped to avoid the browser's automatic block — in Chrome click **Keep**, unzip, and if SmartScreen appears choose **More info → Run anyway**. You can verify the source: everything here is built from this repo.
 
 ## Screenshots
 
